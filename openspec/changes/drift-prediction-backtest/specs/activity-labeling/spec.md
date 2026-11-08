@@ -39,12 +39,12 @@ The mode options sent to the classifier SHALL carry the user's definitions: crea
 - **WHEN** the user edits the definition of "creative" in configuration
 - **THEN** later classifier requests use the edited definition and the label cache distinguishes labels made under the old definition
 
-### Requirement: Route by confidence
-Model labels with confidence ≥ 0.9 SHALL be accepted. Labels from 0.5 up to 0.9 SHALL be accepted and included in a periodic review sample. Labels below 0.5, or sessions where the classifier says no mode fits, SHALL be placed in a review queue for the user. Thresholds SHALL be configurable.
+### Requirement: Route by the probability of the chosen label
+Model mode labels whose chosen option has probability ≥ 0.9 SHALL be accepted; 0.5 up to 0.9 SHALL be accepted and added to a review sample. Below 0.5, or when the classifier says nothing fits, the item SHALL go to the user's review queue and its mode SHALL stay unlabeled until answered. Thresholds SHALL be configurable.
 
-#### Scenario: Low confidence
-- **WHEN** the classifier labels a YouTube session creative with confidence 0.4
-- **THEN** the session appears in the user's review queue
+#### Scenario: Low probability
+- **WHEN** the classifier labels a YouTube session creative with probability 0.4
+- **THEN** the session appears in the user's review queue and its mode stays unlabeled until the user answers
 
 #### Scenario: User answer is reused
 - **WHEN** the user labels a queued session as consuming

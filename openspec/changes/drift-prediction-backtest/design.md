@@ -94,18 +94,18 @@ Consecutive records with the same key, separated by gaps under 30 s, merge into 
 The layers run in order: rules, then cache, then Jev, then the user.
 - **Rules:** a hand-written table on activity key covers the clear cases (Zed or Ghostty → creative, `*/feed` and `x.com/home` → consuming, messaging → reactive).
 - **Cache:** keyed on (activity key, trimmed title, intended task id).
-- **Jev:** one request per cache miss. `state` = {app, path class, trimmed title, caption ≤ 500 chars, previous activity, intended task {channel, trimmed title, source}}. It asks four questions:
-  - `mode`: choice of creative / reactive / consuming, with descriptions written in the user's own words.
-  - `purpose`: choice of lookup / reply / follow-link / browse.
-  - `project`: choice among the Sunsama channels plus `none`.
-  - `alignment`: choice of on-task / supporting / off-task.
-  - Plus a companion Noul `fits` ("does any mode option describe this?").
-- **Confidence routing**, using the docs' suggested starting points:
+- **Jev (as built, following the TypeSafe skill's "judgments from Jev, decisions in code"):** one request per unique *activity* (activity key + trimmed title) that rules left without a mode, cached by activity and question fingerprint. Scope: sessions of at least 60 s, plus every session inside a drift window. `state` = {app, activity_key, path_class, title ≤ 80 chars, caption ≤ 500 chars, prev_activity_key}, built by the egress gate. Questions, all worded in `jev.py`:
+  - `mode`: Choice with the user's own definitions of creative / reactive / consuming.
+  - `purpose`: Choice of lookup / reply / follow_link / browse / own_work (→ `n/a`).
+  - `project`: Choice among the Sunsama channels plus `none`.
+  - `fits`: companion Noul ("is the person actively using this?") to catch idle, locked and system screens.
+  - **Alignment is not asked:** it is decided in code from mode, project and intent (`rule_alignment`). For drift detection only consuming sessions' alignment matters, and code decides those.
+- **Routing by the probability of the chosen mode** (not `confidence`, which measures how concentrated the distribution is, not correctness):
   - ≥ 0.9: accept.
-  - 0.5–0.9: accept, but put in a weekly review sample.
-  - < 0.5, or `fits` < 0.3: put in a `needs_review` queue for the user.
-  - The user's answers become rules or cache entries.
-- **Pin the Jev model version** (a specific model name, not `jev-latest`) for the whole backtest.
+  - 0.5–0.9: accept and add to the review sample.
+  - < 0.5, or `fits` < 0.3: queue for the user, and **hold the mode back** (unlabeled) until answered; purpose and project are kept.
+  - The user's answers become cached labels.
+- **Pin the Jev model version** (`jev-1.14.0`; `GET /v1/models` lists only aliases, but the pinned id is accepted and echoed in every response) for the whole backtest.
 - *Why layers:* most of the time is covered by cheap rules, so Jev only handles the ambiguous long tail. That keeps cost negligible and the labels explainable.
 
 ### D6. Drift episode definition

@@ -26,7 +26,10 @@ def cmd_timeline_build(args) -> None:
             from .projects import make_resolver
         except ImportError:  # project resolution not available yet
             make_resolver = None
-        resolver = make_resolver(cfg) if make_resolver else None
+        if make_resolver:
+            from .context import FocusIndex
+            focus = FocusIndex(cfg.path("sources", "context_log"))
+            resolver = make_resolver(cfg, context_projects=focus.project_at if focus else None)
     summary = build_timeline(cfg, since=_dt(args.since), until=_dt(args.until), resolver=resolver)
     print(json.dumps(summary, indent=2))
 
@@ -35,11 +38,12 @@ def cmd_label(args) -> None:
     from .pipeline import label_all
 
     cfg = load_config(args.config)
-    classifier = None
+    out = {}
     if args.jev:
-        from .jev import JevClassifier
-        classifier = JevClassifier(cfg)
-    print(json.dumps(label_all(cfg, classifier, args.limit), indent=2))
+        from .pipeline import jev_pass
+        out["jev"] = jev_pass(cfg, min_seconds=args.min_seconds, limit=args.limit, workers=args.workers)
+    out.update(label_all(cfg))
+    print(json.dumps(out, indent=2))
 
 
 def cmd_review(args) -> None:
@@ -94,6 +98,12 @@ def cmd_catalog(args) -> None:
     missing = check_catalog_columns(path)
     info = {"items": len(rows), "keys_mapped": len(mapping), "parquet": str(path), "missing_columns": missing,
             "modes": dict(Counter(modes.values()))}
+    if args.action == "refresh-modes":
+        import json as _j
+        st_path = cfg.data_dir / "behaviorgpt_catalog.json"
+        st = _j.loads(st_path.read_text())
+        save_catalog_state(cfg, st["catalog_id"], mapping, modes)
+        info["catalog_id"] = st["catalog_id"]
     if args.action == "upload":
         from behaviorgpt import UnboxAIClient
         from .config import get_secret
@@ -123,6 +133,44 @@ def cmd_report(args) -> None:
                       "pre_entry": res["pre_entry"]}, indent=2))
 
 
+def cmd_context_log(args) -> None:
+    import threading
+
+    from .context import ContextLogger, TimerPoller
+    from .projects import discover_repos, project_for_folder
+
+    cfg = load_config(args.config)
+    cache = cfg.data_dir / "repos.json"
+    repo_map = json.loads(cache.read_text()) if cache.exists() else discover_repos()
+    logger = ContextLogger(cfg.path("sources", "context_log"), lambda cwd: project_for_folder(cwd, repo_map))
+    stop = threading.Event()
+    src_cfg = cfg.section("sources")
+    timer_src = None
+    if src_cfg.get("sunsama_timer") == "mcp":
+        from .sunsama_mcp import fetch
+        token_path = cfg.data_dir / "sunsama_oauth.json"
+        timer_src = lambda: fetch(token_path)
+    elif src_cfg.get("sunsama_timer_command"):
+        timer_src = src_cfg["sunsama_timer_command"]
+    if timer_src:
+        threading.Thread(target=TimerPoller(logger, timer_src, 30).run, args=(stop,), daemon=True).start()
+    print(f"logging herdr context to {logger.log_path} (Sunsama timer: {'on' if timer_src else 'off'}); Ctrl-C to stop")
+    try:
+        logger.run(stop)
+    except KeyboardInterrupt:
+        stop.set()
+
+
+def cmd_sunsama_timer(args) -> None:
+    from .sunsama_mcp import LoginRequired, fetch
+
+    cfg = load_config(args.config)
+    try:
+        print(json.dumps(fetch(cfg.data_dir / "sunsama_oauth.json", interactive=args.login)))
+    except LoginRequired as e:
+        raise SystemExit(str(e))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="behaviornudge")
     p.add_argument("--config", default="behaviornudge.toml")
@@ -139,6 +187,8 @@ def main(argv: list[str] | None = None) -> None:
     lb = sub.add_parser("label", help="label sessions (rules, cache, optional Jev)")
     lb.add_argument("--jev", action="store_true", help="send unlabeled sessions to TypeSafe Jev")
     lb.add_argument("--limit", type=int, default=None, help="max classifier requests")
+    lb.add_argument("--min-seconds", type=float, default=60, help="Jev labels sessions at least this long (plus drift windows)")
+    lb.add_argument("--workers", type=int, default=8)
     lb.set_defaults(func=cmd_label)
 
     rv = sub.add_parser("review", help="answer queued low-confidence labels")
@@ -158,7 +208,8 @@ def main(argv: list[str] | None = None) -> None:
     ep.set_defaults(func=cmd_episodes)
 
     ct = sub.add_parser("catalog", help="build (and upload) the BehaviorGPT activity catalog")
-    ct.add_argument("action", choices=["build", "upload"])
+    ct.add_argument("action", choices=["build", "upload", "refresh-modes"],
+                    help="refresh-modes: recompute item modes from current labels without re-uploading")
     ct.set_defaults(func=cmd_catalog)
 
     rp = sub.add_parser("report", help="run the rolling evaluation and write data/report.md")
@@ -166,6 +217,14 @@ def main(argv: list[str] | None = None) -> None:
     rp.add_argument("--pre-entry-limit", type=int, default=200)
     rp.add_argument("--workers", type=int, default=4)
     rp.set_defaults(func=cmd_report)
+
+    cx = sub.add_parser("context", help="live context logger (herdr focus, folder, agent status)")
+    cx.add_argument("action", choices=["log"])
+    cx.set_defaults(func=cmd_context_log)
+
+    st = sub.add_parser("sunsama-timer", help="read the Sunsama active timer via Sunsama's MCP server (read-only)")
+    st.add_argument("--login", action="store_true", help="sign in through the browser (first run)")
+    st.set_defaults(func=cmd_sunsama_timer)
 
     args = p.parse_args(argv)
     args.func(args)

@@ -29,7 +29,9 @@ def run(cfg: Config, predictors: list[str], pre_entry_limit: int = 200, workers:
         factories[name] = (lambda n=name: create(n, cfg))
         if name == "behaviorgpt":
             p = create(name, cfg)
-            cache_ids[name] = f"behaviorgpt:{p.catalog_id}"
+            import hashlib
+            modes_fp = hashlib.sha256(json.dumps(p.modes, sort_keys=True).encode()).hexdigest()[:8]
+            cache_ids[name] = f"behaviorgpt:{p.catalog_id}:{modes_fp}"  # scores depend on item modes
             wk[name] = workers
     res = evaluate(sessions, episodes, factories, cfg.timezone, budget, cache=cache, workers=wk, cache_ids=cache_ids)
     # pre-entry analysis at trigger moments (meeting ends), test weeks only
@@ -147,8 +149,12 @@ def caveats(res: dict, names: list[str], label_cov: dict) -> list[str]:
                    "meeting ends were followed by a drift.")
     unl = label_cov.get("unlabeled", 0)
     if unl > 0.1:
-        out.append(f"**{unl:.0%} of your time has no mode label.** Unlabeled time can't count as drift, so drift is undercounted "
-                   "and the comparison may change once the Jev layer labels it.")
+        if label_cov.get("model", 0) > 0:
+            out.append(f"**{unl:.0%} of your time still has no mode label.** It's mostly sessions under a minute outside drift windows, "
+                       "plus activities waiting in your review queue (`behaviornudge review list`). Unlabeled time can't count as drift.")
+        else:
+            out.append(f"**{unl:.0%} of your time has no mode label.** Unlabeled time can't count as drift, so drift is undercounted "
+                       "and the comparison may change once the Jev layer labels it.")
     if "behaviorgpt" in names:
         out.append("**Time of day showed no effect in one manual probe.** Shifting one history by 12 hours didn't change BehaviorGPT's "
                    "answer. Whether it ever uses time is still open.")
@@ -204,6 +210,19 @@ def write_report(cfg: Config, res: dict) -> Path:
     L += ["", "## Coverage", "", "![Label sources](report_label_sources.svg)", "", "![Intent sources](report_intent_sources.svg)", "",
           "## Corrected time per Sunsama task", "", "| task | channel | recorded min | worked min |", "|---|---|---|---|"]
     L += [f"| {c['task'][:50]} | {c.get('channel') or '–'} | {c['recorded_min']:.0f} | {c['corrected_min']:.0f} |" for c in corrected[:15]]
+    prev_path = d / "report_rules_only.json"
+    if prev_path.exists():
+        prev = json.loads(prev_path.read_text())
+        pm, pe_ = prev["metrics"], prev["episode_summary"]
+        L += ["", "## Compared with the rules-only run", "",
+              "| | rules-only labels | this run |", "|---|---|---|",
+              f"| episodes / drifts | {pe_['episodes']} / {pe_['drifts']} ({pe_['drift_rate']:.1%}) | {es['episodes']} / {es['drifts']} ({es['drift_rate']:.1%}) |"]
+        for n in names:
+            if n in pm:
+                a, b_ = pm[n]["pooled"], m[n]["pooled"]
+                L.append(f"| {n} ROC-AUC / PR-AUC | {_fmt(a['roc_auc'])} / {_fmt(a['pr_auc'])} | {_fmt(b_['roc_auc'])} / {_fmt(b_['pr_auc'])} |")
+        if "decision" in prev:
+            L.append(f"| recommendation | {prev['decision']['recommend']} | {dec['recommend']} |")
     L += ["", "## Caveats", ""] + [f"- {c}" for c in caveats(res, names, label_cov)]
     fails = {n: m[n]["failures"] for n in names if m[n]["failures"]}
     L += ["", "## Notes", "",

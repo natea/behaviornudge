@@ -60,20 +60,20 @@ Ordering note: groups 1–9 produce a full end-to-end run with **rule-only label
 
 ## 10. Jev labeling layer
 
-- [ ] 10.1 Confirm the TypeSafe key variable name from the SDK constants and pick a pinned model name from `GET /v1/models`; record both in config and `.env.example`; verify with a single `GET /v1/models` call that succeeds
-- [ ] 10.2 Implement the Jev layer for cache misses: one request per session with questions `mode`, `purpose`, `project` (Sunsama channels + `none`) and `alignment`, a companion Noul `fits`, the user's mode definitions as option descriptions, and the payload built by the outbound gate; store version and prompt fingerprint with each label; verify with a mocked test of the request shape, then a live run on 20 sessions that checks the audit log contents
-- [ ] 10.3 Implement confidence routing (≥ 0.9 accept, 0.5–0.9 accept plus review sample, < 0.5 or `fits` < 0.3 → review queue); verify with unit tests at each boundary
-- [ ] 10.4 Re-run labeling, episodes and report with the Jev layer enabled; verify that the report shows label-source coverage including Jev, and compare episode counts and predictor results with the rule-only run
+- [x] 10.1 Confirm the TypeSafe key variable name from the SDK constants and pick a pinned model name from `GET /v1/models`; record both in config and `.env.example`; verify with a single `GET /v1/models` call that succeeds
+- [x] 10.2 Implement the Jev layer for cache misses: one request per session with questions `mode`, `purpose`, `project` (Sunsama channels + `none`) and `alignment`, a companion Noul `fits`, the user's mode definitions as option descriptions, and the payload built by the outbound gate; store version and prompt fingerprint with each label; verify with a mocked test of the request shape, then a live run on 20 sessions that checks the audit log contents
+- [x] 10.3 Implement confidence routing (≥ 0.9 accept, 0.5–0.9 accept plus review sample, < 0.5 or `fits` < 0.3 → review queue); verify with unit tests at each boundary
+- [x] 10.4 Re-run labeling, episodes and report with the Jev layer enabled; verify that the report shows label-source coverage including Jev, and compare episode counts and predictor results with the rule-only run
 
 ## 11. Live context logger
 
-- [ ] 11.1 Implement the read-only logger: subscribe to herdr `events.subscribe` (pane/tab/workspace focus, pane updates, agent status changes), read the focused pane from `herdr api snapshot` on each focus event, poll the Sunsama active timer every 30 s, and append to `data/context-log.jsonl`; verify by switching herdr panes and starting a Sunsama timer and seeing both appear within a few seconds
-- [ ] 11.2 Use the context log as a source for live terminal projects (only while Ghostty is frontmost) and for the `agent-working` trigger; verify with a test that a log entry overrides a misleading terminal window title
+- [x] 11.1 Implement the read-only logger: subscribe to herdr `events.subscribe` (pane/tab/workspace focus, pane updates, agent status changes), read the focused pane from `herdr api snapshot` on each focus event, poll the Sunsama active timer every 30 s, and append to `data/context-log.jsonl`; verify by switching herdr panes and starting a Sunsama timer and seeing both appear within a few seconds
+- [x] 11.2 Use the context log as a source for live terminal projects (only while Ghostty is frontmost) and for the `agent-working` trigger; verify with a test that a log entry overrides a misleading terminal window title
 
 ## 12. Integration checks
 
-- [ ] 12.1 Run the full pipeline from scratch (`timeline build` → labeling → `episodes` → `report`) and verify it completes, both Retrace databases are unchanged, and every outbound request appears in `data/audit.jsonl` with only allowed fields
-- [ ] 12.2 Verify that rebuilding from unchanged sources and cached labels produces an identical report
+- [x] 12.1 Run the full pipeline from scratch (`timeline build` → labeling → `episodes` → `report`) and verify it completes, both Retrace databases are unchanged, and every outbound request appears in `data/audit.jsonl` with only allowed fields
+- [x] 12.2 Verify that rebuilding from unchanged sources and cached labels produces an identical report
 
 ## Workflow follow-up
 

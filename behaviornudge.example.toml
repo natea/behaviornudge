@@ -9,6 +9,7 @@ retrace_jhammant_db = "~/.retrace/retrace.db"
 retrace_to_db = "~/Library/Application Support/Retrace/retrace.db"
 retrace_calendar_helper = "~/.retrace/bin/retrace-calendar"
 context_log = "data/context-log.jsonl"
+sunsama_timer = "mcp"     # live timer via https://api.sunsama.com/mcp; run `behaviornudge sunsama-timer --login` once
 
 [sessions]
 merge_gap_s = 30        # same-key records closer than this merge into one session
@@ -28,8 +29,8 @@ nudge_budget_per_day = 5
 
 [labeling]
 classifier_model = "jev-1.14.0"          # pinned; never an alias for a backtest
-accept_confidence = 0.9
-review_confidence = 0.5
+accept_probability = 0.9                 # probability of the chosen mode (not `confidence`)
+review_probability = 0.5
 fits_min = 0.3
 channel_only = false                     # true = never send task titles, only channels
 

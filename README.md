@@ -8,7 +8,7 @@ behaviornudge reads the screen activity your Mac already records. It finds the m
 
 Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy), a [Sundai Club](https://www.sundai.club) hackathon at MIT on November 8, 2026. The event was centered on [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavioral model that predicts what someone will do next.
 
-> **Status: work in progress.** This repo currently contains the *offline backtest*: it builds a labeled timeline from local data, detects drift episodes, and compares predictors. Live nudges come in a later change. See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
+> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. In the first run on real data, BehaviorGPT won 17 of 28 test weeks, but both signals are weak (ROC-AUC 0.565 vs 0.513). Live nudges come in a later change. See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
 
 For the interactive architecture diagram, download [`docs/architecture.html`](docs/architecture.html) and open it in a browser.
 
@@ -78,7 +78,17 @@ uv run behaviornudge review answer 42 --mode consuming
 
 # 4. Detect drift episodes
 uv run behaviornudge episodes
+
+# 5. Upload the activity catalog to Unbox once, then run the rolling evaluation
+uv run behaviornudge catalog upload
+uv run behaviornudge report            # writes data/report.md (+ SVG charts)
+
+# Live context (herdr focus/agent status + Sunsama timer), going forward
+uv run behaviornudge sunsama-timer --login   # one-time browser sign-in to Sunsama's MCP server
+uv run behaviornudge context log
 ```
+
+`label --jev` sends each unique ambiguous activity to TypeSafe Jev once (cached). Low-probability answers go to `behaviornudge review list` for you to decide.
 
 Calendar history is loaded through jhammant Retrace's `retrace-calendar` helper (Apple Calendar, which a Google calendar can sync into). Only calendars on `intent.calendar_allowlist` are used.
 
@@ -98,11 +108,14 @@ uv run pytest
 | `src/behaviornudge/labels.py`, `pipeline.py` | layered labeler, cache, review queue |
 | `src/behaviornudge/episodes.py` | drift episodes and triggers |
 | `src/behaviornudge/predictors/` | predictor contract, baseline, BehaviorGPT adapter |
+| `src/behaviornudge/jev.py` | TypeSafe Jev labeling (question wording, probability routing) |
+| `src/behaviornudge/evaluate.py`, `report.py` | rolling evaluation, metrics, decision, report |
+| `src/behaviornudge/context.py`, `sunsama_mcp.py` | live herdr logger; Sunsama timer via Sunsama's MCP server |
 | `src/behaviornudge/egress.py` | the outbound allowlist and audit log |
 
 This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). The proposal, design, specs and tasks live in [`openspec/changes/`](openspec/changes/):
 
-- `drift-prediction-backtest`: the offline backtest (in progress)
+- `drift-prediction-backtest`: the offline backtest (all 37 tasks done)
 - `easytpp-drift-predictor`: a neural temporal-point-process predictor via [EasyTPP](https://github.com/ant-research/EasyTemporalPointProcess) (proposed)
 
 ## License

@@ -74,9 +74,18 @@ def label_all(cfg: Config, classifier: Classifier | None = None, limit_classifie
     sent = 0
     queued = 0
     prev = None
+    act_fp = jev_fingerprint(cfg)
     for s, lab in zip(sessions, rules):
         intent = resolver.resolve(parse_utc(s["start_utc"]))
-        lab.set("alignment", rule_alignment(s, lab, intent), "rule")
+        if act_fp and any(getattr(lab, d) is None for d in ("mode", "purpose", "project")):
+            from .jev import activity_cache_key
+            act = store.get(activity_cache_key(s["key"], s.get("title"), act_fp))
+            if act:
+                for d in ("mode", "purpose", "project"):
+                    src = act.sources.get(d, "model")
+                    lab.set(d, getattr(act, d), "user" if src == "user" else "model", act.confidence.get(d))
+                lab.model, lab.prompt_fp = act.model, act.prompt_fp
+        lab.set("alignment", rule_alignment(s, lab, intent), "rule")  # decided in code from the judgments
         ck = cache_key(s, intent, defs)
         if lab.missing():
             cached = store.get(ck)
@@ -150,3 +159,81 @@ def trigger_index(cfg: Config):
     info = {"calendar_ends": len(cal), "notifications": "unavailable (no notification history recorded)",
             "agent_working_spans": len(agent)}
     return TriggerIndex([e.end for e in cal], [], agent), info
+
+
+def sunsama_channels(cfg: Config) -> list[str]:
+    p = cfg.data_dir / "sunsama" / "tasks.json"
+    chans = set(cfg.section("projects").values())
+    if p.exists():
+        chans |= {t.get("channel") for t in json.loads(p.read_text()) if t.get("channel")}
+    return sorted(chans)
+
+
+def jev_fingerprint(cfg: Config) -> str | None:
+    from .jev import questions_fp
+    lc = cfg.section("labeling")
+    return questions_fp(lc.get("modes", {}), sunsama_channels(cfg), lc.get("classifier_model", "jev-1.14.0"))
+
+
+def jev_pass(cfg: Config, min_seconds: float = 60, limit: int | None = None, workers: int = 8, labeler=None) -> dict:
+    """Label each unique (activity, title) that rules left without a mode, once. Sessions
+    shorter than min_seconds are included only when they fall inside a drift window."""
+    from .episodes import load as load_episodes
+    from .jev import JevLabeler, activity_cache_key
+
+    ddir = cfg.data_dir
+    sessions = read_sessions(ddir / "timeline.sqlite")
+    proj2ch, _ = channel_maps(cfg)
+    rules = [rule_label(s, proj2ch) for s in sessions]
+    windows = []
+    ep_path = ddir / "episodes.json"
+    if ep_path.exists():
+        from datetime import timedelta
+        win = timedelta(minutes=cfg.section("drift").get("window_min", 15))
+        windows = sorted((e.entry_time, e.entry_time + win) for e in load_episodes(ep_path))
+    import bisect
+    wstarts = [w[0] for w in windows]
+
+    def in_window(t):
+        i = bisect.bisect_right(wstarts, t) - 1
+        return i >= 0 and windows[i][0] <= t < windows[i][1]
+
+    labeler = labeler or JevLabeler(cfg, sunsama_channels(cfg))
+    store = LabelStore(ddir / "labels.sqlite")
+    todo, seen = [], set()
+    prev_key = None
+    for s, lab in zip(sessions, rules):
+        if lab.mode is None and (s["seconds"] >= min_seconds or in_window(parse_utc(s["start_utc"]))):
+            ck = activity_cache_key(s["key"], s.get("title"), labeler.fp)
+            if ck not in seen and store.get(ck) is None:
+                seen.add(ck)
+                todo.append((ck, s, prev_key))
+        prev_key = s["key"]
+    if limit is not None:
+        todo = todo[:limit]
+    results = labeler.label_many(todo, workers=workers)
+    by_ck = {ck: s for ck, s, _ in todo}
+    counts = Counter()
+    models = Counter()
+    errors = []
+    for ck, lab, review, err in results:
+        if err:
+            errors.append(err)
+            counts["error"] += 1
+            continue
+        models[lab.model] += 1
+        counts[review or "accepted"] += 1
+        if review:
+            from .intent import NO_INTENT
+            store.enqueue(ck, by_ck[ck], NO_INTENT, "low probability or nothing fits" if review == "queue" else "review sample", lab, review)
+        if review == "queue":
+            # too uncertain to use: keep the mode out of the analysis until the user answers
+            import copy
+            held = copy.deepcopy(lab)
+            held.mode = None
+            held.sources.pop("mode", None)
+            store.put(ck, held)
+        else:
+            store.put(ck, lab)
+    store.close()
+    return {"requests": len(todo), "outcomes": dict(counts), "models": dict(models), "errors": errors[:5], "fingerprint": labeler.fp}
