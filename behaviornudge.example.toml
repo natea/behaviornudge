@@ -1,0 +1,50 @@
+# behaviornudge configuration — example. Copy to behaviornudge.toml (git-ignored) and edit.
+# Secrets do NOT go here: use environment variables or .env.
+
+timezone = "America/New_York"
+data_dir = "data"
+
+[sources]
+retrace_jhammant_db = "~/.retrace/retrace.db"
+retrace_to_db = "~/Library/Application Support/Retrace/retrace.db"
+retrace_calendar_helper = "~/.retrace/bin/retrace-calendar"
+context_log = "data/context-log.jsonl"
+
+[sessions]
+merge_gap_s = 30        # same-key records closer than this merge into one session
+transition_max_s = 3    # shorter activity is a transition, not a session
+
+[intent]
+recent_creative_window_min = 30
+timer_cap_min = 45                       # forgotten-timer cap
+calendar_allowlist = ["Your Name (your-calendar)"]   # exact calendar names as Apple Calendar shows them
+
+[drift]
+prone_sites = ["linkedin.com", "x.com", "instagram.com"]
+window_min = 15
+threshold_min = 3
+return_min_s = 60        # a return to work must last this long; shorter glances are ignored
+nudge_budget_per_day = 5
+
+[labeling]
+classifier_model = "jev-1.14.0"          # pinned; never an alias for a backtest
+accept_confidence = 0.9
+review_confidence = 0.5
+fits_min = 0.3
+channel_only = false                     # true = never send task titles, only channels
+
+[labeling.modes]
+creative = "Writing, building, or making something: coding, drafting, designing, composing."
+reactive = "Replying, communicating, or looking something up for a specific reason: messages, email, a profile lookup."
+consuming = "Scrolling feeds and browsing for novelty or shiny objects, without a specific goal."
+
+[projects]
+# repository name -> Sunsama channel (unmapped repos resolve to their repo name)
+"my-repo" = "My Project"
+
+[predictors]
+enabled = ["baseline", "behaviorgpt"]
+behaviorgpt_market = "us"
+behaviorgpt_top_k = 20
+behaviorgpt_history_sessions = 50
+behaviorgpt_order_min = 10

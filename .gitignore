@@ -1,0 +1,19 @@
+# secrets
+.env
+
+# local data, caches, reports (personal activity data never leaves this machine)
+data/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.playwright-mcp/
+
+# personal config (copy from behaviornudge.example.toml)
+behaviornudge.toml
+
+# local tool logs/caches
+*.log
+.impeccable/

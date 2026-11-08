@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>behaviornudge architecture</title>
+<meta name="description" content="How behaviornudge turns local screen activity into drift predictions and, later, nudges.">
+<style>
+/* Design plan
+   Color: ink #18202B (text), paper #F5F7F8 (ground, cool-tinted), flow #2E5B86 (structure/accent),
+          creative #2F7A55, reactive #A66F12, consuming #B0346A (activity modes — their own lane),
+          status: built #2F7A55-ish chip, pending #8A6A1F chip, blocked #9B3B3B chip.
+   Type:  display = system serif (Charter/Iowan/Georgia) for headings; body = system sans; data = system mono.
+   Layout: two stacked figures. 1) a horizontal "trap" strip (process). 2) a left-to-right lane diagram
+          (sources → normalize → understand → detect → predict → decide) inside a dashed "on your Mac"
+          boundary, with the two cloud services hanging below it. Click any node for details. */
+:root {
+  --ink: #18202B; --ink-2: #4A5565; --ink-3: #7A8494;
+  --paper: #F5F7F8; --card: #FFFFFF; --line: #D5DBE2; --line-2: #E6EAEF;
+  --flow: #2E5B86; --flow-soft: #E3ECF5;
+  --creative: #2F7A55; --reactive: #A66F12; --consuming: #B0346A;
+  --built-bg: #E2F1E8; --built-fg: #23603F;
+  --pend-bg: #F6EDD7; --pend-fg: #7A5A12;
+  --block-bg: #F5E0E0; --block-fg: #8A2F2F;
+  --cloud: #EEF0F6;
+  --shadow: 0 1px 2px rgba(24,32,43,.06), 0 2px 8px rgba(24,32,43,.05);
+  --serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+    --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+    --flow: #7FB0DD; --flow-soft: #1E2C3B;
+    --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+    --built-bg: #1C3328; --built-fg: #8FD8AE;
+    --pend-bg: #3A3020; --pend-fg: #E8C677;
+    --block-bg: #3D2224; --block-fg: #F0A3A3;
+    --cloud: #1C2230;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+  --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+  --flow: #7FB0DD; --flow-soft: #1E2C3B;
+  --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+  --built-bg: #1C3328; --built-fg: #8FD8AE;
+  --pend-bg: #3A3020; --pend-fg: #E8C677;
+  --block-bg: #3D2224; --block-fg: #F0A3A3;
+  --cloud: #1C2230;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.55 var(--sans); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 40px; }
+header { display: grid; gap: 10px; max-width: 70ch; }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--flow); }
+h1 { font: 600 clamp(26px, 4vw, 38px)/1.15 var(--serif); margin: 0; text-wrap: balance; }
+h2 { font: 600 22px/1.25 var(--serif); margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 65ch; color: var(--ink-2); }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+button { font: inherit; color: inherit; }
+.chip-btn { border: 1px solid var(--line); background: var(--card); border-radius: 6px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+.chip-btn:focus-visible, .node:focus-visible, .stage:focus-visible { outline: 2px solid var(--flow); outline-offset: 2px; }
+section { display: grid; gap: 16px; }
+.figure { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 20px; }
+.scroll { overflow-x: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* ---------- Figure 1: the trap ---------- */
+.trap { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 0; min-width: 820px; position: relative; }
+.stage { position: relative; padding: 14px 14px 16px; border-top: 4px solid var(--c); background: transparent; text-align: left; border-left: 0; border-right: 0; border-bottom: 0; cursor: default; display: grid; gap: 6px; align-content: start; }
+.stage + .stage { border-left: 1px dashed var(--line); }
+.stage .t { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--c); }
+.stage .h { font: 600 16px/1.3 var(--serif); color: var(--ink); }
+.stage .d { font-size: 13px; color: var(--ink-2); }
+.stage .k { font: 12px/1.4 var(--mono); color: var(--ink-3); }
+.pin { margin-top: 8px; display: inline-flex; gap: 6px; align-items: center; font: 600 12px/1.3 var(--sans); color: var(--flow); background: var(--flow-soft); border-radius: 5px; padding: 5px 8px; justify-self: start; }
+.pin b { font-family: var(--mono); }
+.trap-foot { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+.trap-foot strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- Figure 2: architecture ---------- */
+.arch { min-width: 1040px; display: grid; gap: 18px; }
+.mac { border: 1.5px dashed var(--flow); border-radius: 12px; padding: 30px 14px 14px; position: relative; }
+.mac-label { position: absolute; top: -10px; left: 16px; background: var(--card); padding: 0 8px; font: 600 11px/20px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--flow); }
+.lanes { display: grid; grid-template-columns: 1.05fr 18px 1fr 18px 1.1fr 18px 1fr 18px 1fr 18px 0.95fr; align-items: stretch; }
+.lane { display: grid; gap: 8px; align-content: start; }
+.lane h3 { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 4px; }
+.arrow { display: grid; place-items: center; color: var(--flow); }
+.arrow svg { width: 18px; height: 18px; }
+.node { text-align: left; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 9px 10px; cursor: pointer; display: grid; gap: 3px; position: relative; }
+.node:hover { border-color: var(--flow); }
+.node[aria-pressed="true"] { border-color: var(--flow); box-shadow: 0 0 0 2px var(--flow-soft); }
+.node .n { font: 600 13.5px/1.25 var(--sans); color: var(--ink); padding-right: 52px; }
+.node .s { font-size: 12px; line-height: 1.35; color: var(--ink-2); }
+.node .m { font: 11.5px/1.3 var(--mono); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.status { position: absolute; top: 8px; right: 8px; font: 600 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; padding: 3px 5px; border-radius: 4px; }
+.st-built { background: var(--built-bg); color: var(--built-fg); }
+.st-pend { background: var(--pend-bg); color: var(--pend-fg); }
+.st-block { background: var(--block-bg); color: var(--block-fg); }
+.node.dim { opacity: .35; }
+.below { display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 14px; align-items: start; }
+.cloud { background: var(--cloud); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.cloud h3 { margin: 0; font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.egress { font: 12px/1.45 var(--mono); color: var(--ink-2); border: 1px dashed var(--flow); padding: 8px 10px; background: var(--flow-soft); border-radius: 8px; }
+.egress b { color: var(--ink); }
+
+.detail { border: 1px solid var(--line); border-radius: 10px; background: var(--card); padding: 16px 18px; display: grid; gap: 8px; min-height: 120px; }
+.detail .eyebrow { color: var(--ink-3); }
+.detail h4 { margin: 0; font: 600 18px/1.3 var(--serif); }
+.detail p { color: var(--ink-2); }
+.detail dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 4px 0 0; font-size: 13px; }
+.detail dt { color: var(--ink-3); font: 12px/1.5 var(--mono); }
+.detail dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.detail code { font: 12.5px var(--mono); background: var(--line-2); padding: 1px 5px; border-radius: 4px; }
+
+.cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.card h3 { margin: 0; font: 600 16px/1.3 var(--serif); }
+.card p, .card li { font-size: 13.5px; color: var(--ink-2); }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.num { font: 600 26px/1 var(--serif); color: var(--ink); font-variant-numeric: tabular-nums; }
+.bars { display: grid; gap: 6px; }
+.bar { display: grid; grid-template-columns: 112px 1fr 44px; gap: 8px; align-items: center; font: 12px var(--mono); color: var(--ink-2); }
+.bar i { display: block; height: 8px; border-radius: 2px; background: var(--flow); }
+.bar span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+footer { font-size: 12.5px; color: var(--ink-3); }
+
+@media (max-width: 860px) {
+  .cols { grid-template-columns: 1fr; }
+  .below { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .node, .chip-btn { transition: border-color .15s, box-shadow .15s, opacity .15s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">behaviornudge · drift-prediction-backtest</span>
+  <h1>Catch the drift before it starts</h1>
+  <p>behaviornudge reads what is already recorded on this Mac, finds the moments when a purposeful visit to LinkedIn, X or Instagram turned into feed-scrolling, and tests which model predicts those moments early enough to nudge. Everything runs locally; only short activity keys and trimmed titles go to two cloud services.</p>
+  <div class="toolbar">
+    <button class="chip-btn" id="theme" type="button" aria-label="Toggle light and dark theme">Toggle theme</button>
+  </div>
+</header>
+
+<!-- ======================= Figure 1 ======================= -->
+<section aria-labelledby="f1">
+  <h2 id="f1">The trap, and where the nudges go</h2>
+  <p>A drift episode starts with a purposeful visit and counts as drift when at least 3 minutes of off-task consuming follow within 15 minutes, before you return to work for at least 60 seconds.</p>
+  <div class="figure scroll" role="group" aria-label="Five stages of a drift episode">
+    <div class="trap">
+      <div class="stage" style="--c: var(--creative)">
+        <span class="t">Creative</span>
+        <span class="h">Working on the task</span>
+        <span class="d">Zed or Ghostty on a project, or the Sunsama timer / calendar block you planned.</span>
+        <span class="k">zed:behaviornudge</span>
+      </div>
+      <div class="stage" style="--c: var(--reactive)">
+        <span class="t">Trigger</span>
+        <span class="h">A gap opens</span>
+        <span class="d">A meeting just ended, a notification arrived, or Claude is working and you're waiting.</span>
+        <span class="k">meeting-ended · agent-working</span>
+        <span class="pin">Nudge point 0 <b>predict</b></span>
+      </div>
+      <div class="stage" style="--c: var(--reactive)">
+        <span class="t">Purposeful visit</span>
+        <span class="h">"Just reply to Alex"</span>
+        <span class="d">Reply to a message, look someone up, or open a link someone sent.</span>
+        <span class="k">linkedin.com/messaging</span>
+        <span class="pin">Nudge point 1 <b>you came to…</b></span>
+      </div>
+      <div class="stage" style="--c: var(--consuming)">
+        <span class="t">Drift</span>
+        <span class="h">The feed takes over</span>
+        <span class="d">Off-task consuming: the feed, a stream of posts, reels.</span>
+        <span class="k">linkedin.com/feed · x.com/home</span>
+        <span class="pin">Nudge point 2 <b>back to…</b></span>
+      </div>
+      <div class="stage" style="--c: var(--creative)">
+        <span class="t">Return</span>
+        <span class="h">Back, 25 minutes later</span>
+        <span class="d">The first on-task or creative session lasting 60 seconds or more.</span>
+        <span class="k">zed:behaviornudge</span>
+      </div>
+    </div>
+    <div class="trap-foot" aria-label="Results so far">
+      <span>Episodes found <strong>802</strong></span>
+      <span>Drifts <strong>86</strong> (10.7%, rules-only labels)</span>
+      <span>Most drift-prone purpose <strong>reply</strong></span>
+      <span>Data <strong>Apr 11 – Nov 8, 2026</strong></span>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= Figure 2 ======================= -->
+<section aria-labelledby="f2">
+  <h2 id="f2">Architecture</h2>
+  <div class="legend" aria-hidden="true">
+    <span><i class="sw" style="background: var(--built-bg); outline: 1px solid var(--built-fg)"></i>built</span>
+    <span><i class="sw" style="background: var(--pend-bg); outline: 1px solid var(--pend-fg)"></i>pending</span>
+    <span><i class="sw" style="background: var(--block-bg); outline: 1px solid var(--block-fg)"></i>needs a decision</span>
+    <span>Select a component for details</span>
+  </div>
+
+  <div class="figure scroll">
+    <div class="arch">
+      <div class="mac" role="group" aria-label="Runs on your Mac">
+        <span class="mac-label">On your Mac · read-only sources · data/ is git-ignored</span>
+        <div class="lanes">
+          <div class="lane" aria-label="Sources">
+            <h3>Sources</h3>
+            <button class="node" data-id="rt" type="button"><span class="status st-built">read</span><span class="n">retrace.to</span><span class="s">segments with exact durations, URL, window title</span><span class="m">243,576 rows · Apr 11→</span></button>
+            <button class="node" data-id="jh" type="button"><span class="status st-built">read</span><span class="n">jhammant Retrace</span><span class="s">captures + captions, Screen Time, browser history</span><span class="m">4,122 · 10,103 · 58,529</span></button>
+            <button class="node" data-id="cal" type="button"><span class="status st-built">read</span><span class="n">Apple Calendar</span><span class="s">via Retrace's EventKit helper; natejaune only</span><span class="m">1,902 events</span></button>
+            <button class="node" data-id="sun" type="button"><span class="status st-built">read</span><span class="n">Sunsama</span><span class="s">timers and timeboxes, exported once</span><span class="m">14 timers · 14 boxes</span></button>
+            <button class="node" data-id="herdr" type="button"><span class="status st-pend">group 11</span><span class="n">herdr</span><span class="s">focused pane folder, agent working/done</span><span class="m">live events</span></button>
+          </div>
+          <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div class="lane" aria-label="Normalize">
+            <h3>Normalize</h3>
+            <button class="node" data-id="keys" type="button"><span class="status st-built">built</span><span class="n">Activity keys</span><span class="s">URL → domain/path-class; app; app:project</span><span class="m">linkedin.com/feed</span></button>
+            <button class="node" data-id="merge" type="button"><span class="status st-built">built</span><span class="n">Overlap + sessions</span><span class="s">best source wins; &lt;30 s gaps merge; &lt;3 s = transition</span><span class="m">93,726 sessions</span></button>
+            <button class="node" data-id="proj" type="button"><span class="status st-built">built</span><span class="n">Project resolver</span><span class="s">herdr → Zed title → screen text → title</span><span class="m">181 repos · worktrees</span></button>
+          </div>
+          <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div class="lane" aria-label="Understand">
+            <h3>Understand</h3>
+            <button class="node" data-id="intent" type="button"><span class="status st-built">built</span><span class="n">Intent</span><span class="s">timer → timebox → calendar → recent creative → none</span><span class="m">88% of moments known</span></button>
+            <button class="node" data-id="labels" type="button"><span class="status st-built">built</span><span class="n">Labeler: rules + cache</span><span class="s">mode · purpose · project · alignment</span><span class="m">50.5% of time by rules</span></button>
+            <button class="node" data-id="review" type="button"><span class="status st-built">built</span><span class="n">Review queue</span><span class="s">you answer what models can't; answers are reused</span><span class="m">behaviornudge review</span></button>
+          </div>
+          <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div class="lane" aria-label="Detect">
+            <h3>Detect</h3>
+            <button class="node" data-id="eps" type="button"><span class="status st-built">built</span><span class="n">Drift episodes</span><span class="s">purposeful visit → ≥3 min off-task consuming in 15 min</span><span class="m">802 episodes · 86 drifts</span></button>
+            <button class="node" data-id="trig" type="button"><span class="status st-built">built</span><span class="n">Triggers</span><span class="s">meeting ended · notification · agent working</span><span class="m">features, not labels</span></button>
+          </div>
+          <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div class="lane" aria-label="Predict">
+            <h3>Predict</h3>
+            <button class="node" data-id="contract" type="button"><span class="status st-built">built</span><span class="n">Predictor contract</span><span class="s">history before t, t, intent, current key → p(drift)</span><span class="m">swappable registry</span></button>
+            <button class="node" data-id="base" type="button"><span class="status st-built">built</span><span class="n">Baseline</span><span class="s">your own history, back-off smoothing</span><span class="m">local · instant</span></button>
+            <button class="node" data-id="bgpt" type="button"><span class="status st-block">decide</span><span class="n">BehaviorGPT adapter</span><span class="s">activity catalog, View/Order history</span><span class="m">cloud · see below</span></button>
+            <button class="node" data-id="future" type="button"><span class="status st-pend">later</span><span class="n">Future adapters</span><span class="s">EasyTPP · local LLM · Jev-as-predictor</span><span class="m">same contract</span></button>
+          </div>
+          <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 18"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div>
+          <div class="lane" aria-label="Decide">
+            <h3>Decide</h3>
+            <button class="node" data-id="eval" type="button"><span class="status st-pend">group 9</span><span class="n">Rolling evaluation</span><span class="s">train on past weeks, test the next; no look-ahead</span><span class="m">PR-AUC · lead time</span></button>
+            <button class="node" data-id="report" type="button"><span class="status st-pend">group 9</span><span class="n">Report</span><span class="s">which predictor goes live, and why</span><span class="m">data/report.md</span></button>
+            <button class="node" data-id="live" type="button"><span class="status st-pend">later</span><span class="n">Live nudges</span><span class="s">Retrace menu bar · notification</span><span class="m">out of scope here</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="below">
+        <div class="cloud" role="group" aria-label="TypeSafe Jev, cloud">
+          <h3>Cloud · TypeSafe Jev</h3>
+          <button class="node" data-id="jev" type="button"><span class="status st-pend">group 10</span><span class="n">Jev classifier</span><span class="s">labels the ambiguous half; confidence routes to you</span><span class="m">jev-1.14.0 pinned</span></button>
+        </div>
+        <div class="cloud" role="group" aria-label="Unbox BehaviorGPT, cloud">
+          <h3>Cloud · Unbox BehaviorGPT</h3>
+          <button class="node" data-id="unbox" type="button"><span class="status st-block">decide</span><span class="n">BehaviorGPT-v4</span><span class="s">ranks the next activity from your history</span><span class="m">predict="view"</span></button>
+        </div>
+        <div class="egress" role="note">
+          <b>Egress gate</b> — the only way out. Allowed: activity key, path class, title ≤80 chars, caption ≤500, Sunsama channel, trimmed task title (or channel-only). Never: screen text, full URLs, query strings, screenshots, HTML. Every request is written to <b>data/audit.jsonl</b>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail" id="detail" aria-live="polite">
+    <span class="eyebrow">Component details</span>
+    <h4>Select a component above</h4>
+    <p>Each box shows what it does, the file that implements it, and the numbers from today's run on your data.</p>
+  </div>
+</section>
+
+<!-- ======================= Figure 3 ======================= -->
+<section aria-labelledby="f3">
+  <h2 id="f3">What the data says so far</h2>
+  <div class="cols">
+    <div class="card">
+      <h3>Where intent comes from</h3>
+      <p>Share of moments, 30-minute recent-creative window.</p>
+      <div class="bars" role="img" aria-label="Calendar 59.7 percent, recent creative 27.6, none 11.8, timer 0.7, planned 0.1">
+        <div class="bar"><span>calendar</span><i style="width:59.7%"></i><span>59.7%</span></div>
+        <div class="bar"><span>recent creative</span><i style="width:27.6%"></i><span>27.6%</span></div>
+        <div class="bar"><span>none</span><i style="width:11.8%; background: var(--ink-3)"></i><span>11.8%</span></div>
+        <div class="bar"><span>Sunsama timer</span><i style="width:0.7%"></i><span>0.7%</span></div>
+        <div class="bar"><span>Sunsama timebox</span><i style="width:0.1%"></i><span>0.1%</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Forgotten timers, corrected</h3>
+      <p>Sunsama's recorded time vs. time the screen actually showed related work.</p>
+      <span class="num">1,031 → 74 min</span>
+      <p>"Alex re LI post" ran overnight. Timers stop counting 45 minutes after the last related activity.</p>
+    </div>
+    <div class="card">
+      <h3>Open decision</h3>
+      <p>The BehaviorGPT SDK re-stamps history events with times just before "now", so the model would read the wrong hour and weekday for past episodes. The raw API it calls accepts a real timestamp per event and an as-of time per request.</p>
+      <ul>
+        <li><strong>Recommended:</strong> call that endpoint directly with real timestamps</li>
+        <li>Use the SDK and accept "now" times (time-of-day signal lost)</li>
+        <li>Only score recent episodes</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>Generated from openspec/changes/drift-prediction-backtest and today's runs (cutoff 2026-11-08 19:00 UTC). Numbers change as labeling improves.</footer>
+</div>
+
+<script>
+const D = {
+  rt: ["Source", "retrace.to database", "The main duration source: every app/window segment since Apr 11 with exact start and end, window title and browser URL. Opened strictly read-only.", {"File": "src/behaviornudge/sources.py · read_retrace_to", "Rows": "243,576 segments", "Priority": "1st when sources overlap"}],
+  jh: ["Source", "jhammant Retrace", "Live, event-driven capture with on-device captions; also Screen Time app durations and Chrome/Safari history. Screen text stays in Retrace; only captions enter the timeline.", {"File": "src/behaviornudge/sources.py", "Captures": "4,122 (2nd–3rd priority)", "Screen Time": "10,103 app intervals", "Browser visits": "58,529 (name pages, add no time)", "Quirk": "'active' source ignored (start after end)"}],
+  cal: ["Source", "Apple Calendar via Retrace", "Retrace's existing EventKit helper reads Apple Calendar, which your Google calendar syncs into. Only the natejaune calendar is used; all-day events are dropped. Declined status isn't available.", {"File": "src/behaviornudge/calendar.py", "Events kept": "1,902 of 3,840", "Range": "Apr 6 – Nov 8"}],
+  sun: ["Source", "Sunsama export", "Exported once, read-only: completed tasks, timer sessions and past timeboxes (from Sunsama Calendar). You use timers rarely, so this is a small bonus signal.", {"Files": "data/sunsama/*.json", "Tasks": "1,192", "Timer sessions": "14 timed", "Timeboxes": "14"}],
+  herdr: ["Source · pending", "herdr live context", "Subscribes to herdr events for the focused pane's folder and agent status. Trusted only while Ghostty is frontmost; worktrees map to their main repo. Builds history from now on.", {"Task": "group 11", "Command": "herdr api snapshot · events.subscribe"}],
+  keys: ["Normalize", "Activity keys", "Coarse, privacy-safe keys: linkedin.com/feed vs linkedin.com/messaging, x.com/status, zed:behaviornudge. Query strings and full URLs never appear.", {"File": "src/behaviornudge/keys.py", "Example": "linkedin.com/feed/?trk=nav → linkedin.com/feed"}],
+  merge: ["Normalize", "Overlap resolution and sessions", "Each moment is owned by the best source covering it. Same-key records closer than 30 s merge; anything under 3 s is a transition. Builds are reproducible with --until.", {"File": "src/behaviornudge/timeline.py", "Sessions": "93,726", "Hours": "1,462", "Command": "behaviornudge timeline build --until …"}],
+  proj: ["Normalize", "Project resolver", "Terminal and editor time gets a project: herdr (live), Zed's window title, screen-text mentions of repo paths, then terminal titles (marked inferred). Generic folder names barely count.", {"File": "src/behaviornudge/projects.py", "Repos found": "181 (incl. worktrees)", "Resolved": "180 h title · 32 h inferred · 75 h unknown"}],
+  intent: ["Understand", "Intent resolver", "What were you supposed to be doing? Sunsama timer (capped) → timebox → calendar (shortest covering event wins) → last creative project within 30 min → none.", {"File": "src/behaviornudge/intent.py", "Known": "88% of moments", "Windows": "15/30/60/120 min: 84/88/92/94% known"}],
+  labels: ["Understand", "Rules and cache", "Labels every session for mode, purpose, project and alignment. Rules cover the clear cases; cached answers are reused; the ambiguous rest goes to Jev, then to you.", {"File": "src/behaviornudge/labels.py · pipeline.py", "Rule coverage": "50.5% of time (mode)", "Mode split": "reactive 25% · creative 24% · consuming 2.5% · unlabeled 49%"}],
+  review: ["Understand", "Review queue", "Low-confidence labels wait for you. Your answer becomes a cached label, so the same case never needs asking twice.", {"Command": "behaviornudge review list · review answer <id> --mode consuming"}],
+  eps: ["Detect", "Drift episodes", "Entry = a purposeful visit (reply, lookup, follow-link) to LinkedIn, X or Instagram. Drift = ≥3 min off-task consuming within 15 min, before a ≥60 s return to work.", {"File": "src/behaviornudge/episodes.py", "Episodes": "802", "Drifts": "86 (10.7%)", "Command": "behaviornudge episodes"}],
+  trig: ["Detect", "Triggers", "Recorded at each entry as features for analysis, never as part of the label.", {"meeting-ended": "calendar event ended ≤5 min before", "notification": "unavailable (no history recorded)", "agent-working": "from the herdr log, going forward"}],
+  contract: ["Predict", "Predictor contract", "Any model plugs in by implementing predict(history, at, intent, current_key) → p(drift), ranked next activities, model id, latency. The harness rejects any history that ends after the decision time.", {"File": "src/behaviornudge/predictors/__init__.py"}],
+  base: ["Predict", "Baseline", "Learns from your past weeks: drift rate by current site, previous activity, time of day and weekday, smoothed toward broader contexts. The bar BehaviorGPT has to beat.", {"File": "src/behaviornudge/predictors/baseline.py", "Model id": "baseline-backoff-v1"}],
+  bgpt: ["Predict · needs a decision", "BehaviorGPT adapter", "Maps activity keys to a catalog (one row per key) and sessions to View/Order events. Paused: the SDK re-stamps events near 'now', which hides the real hour and weekday of past episodes.", {"Task": "group 8", "Catalog": "≈ a few hundred activity keys"}],
+  future: ["Predict · later", "Future adapters", "Same contract, no other code changes: EasyTPP temporal point processes (proposed change easytpp-drift-predictor), a small local LLM, or Jev answering a yes/no drift question.", {}],
+  eval: ["Decide · pending", "Rolling evaluation", "For each week: fit on earlier weeks, score every episode entry, never show a predictor anything after the decision time. Per-week metrics where defined, plus pooled.", {"Task": "group 9", "Budget": "≤5 nudges per working day"}],
+  report: ["Decide · pending", "Report", "PR-AUC, ROC-AUC, precision/recall at the nudge budget, lead time, false alarms, latency, split by trigger, hour and intent source; corrected time per task; the recommendation and why.", {"Output": "data/report.md"}],
+  live: ["Next change", "Live nudges", "Out of scope for this change. The winner runs live and nudges through jhammant Retrace's menu bar or a notification, at the three nudge points.", {}],
+  jev: ["Cloud · pending", "TypeSafe Jev", "One request per unlabeled session with four Choice questions (mode, purpose, project, alignment) plus a 'does any mode fit?' check. ≥0.9 accepted, 0.5–0.9 sampled for review, lower goes to you.", {"Task": "group 10", "Key": "TYPESAFE_API_KEY in .env", "Model": "jev-1.14.0"}],
+  unbox: ["Cloud · needs a decision", "Unbox BehaviorGPT", "A 12.5B behavior model trained on shopping, engagement and payments sequences — off-label for screen activity, which is exactly what the comparison tests.", {"Key": "UNBOXAI_API_KEY in .env", "SDK": "behaviorgpt 0.x · predict='view'"}],
+};
+const detail = document.getElementById("detail");
+const nodes = [...document.querySelectorAll(".node")];
+function show(id) {
+  const [eyebrow, title, body, facts] = D[id];
+  const dl = Object.entries(facts).map(([k, v]) => `<dt>${k}</dt><dd>${v.replace(/(src\/[\w\/.]+|data\/[\w\/.*]+|behaviornudge [\w <>\-…]+)/g, "<code>$1</code>")}</dd>`).join("");
+  detail.innerHTML = `<span class="eyebrow">${eyebrow}</span><h4>${title}</h4><p>${body}</p>${dl ? `<dl>${dl}</dl>` : ""}`;
+  nodes.forEach(n => n.setAttribute("aria-pressed", n.dataset.id === id ? "true" : "false"));
+}
+nodes.forEach(n => { n.setAttribute("aria-pressed", "false"); n.addEventListener("click", () => show(n.dataset.id)); });
+document.getElementById("theme").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+});
+</script>
+</body>
+</html>
