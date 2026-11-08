@@ -7,11 +7,15 @@ Labels every timeline session with mode, purpose, project and alignment with the
 ## ADDED Requirements
 
 ### Requirement: Label every session on four dimensions
-Every session SHALL receive a **mode** (creative / reactive / consuming), a **purpose** (lookup / reply / follow-link / browse), a **project** (a Sunsama channel or `none`), and an **alignment** with the intended task (on-task / supporting / off-task, or `no-intent` when there is none). Each label SHALL record its source (rule, cache, model or user) and, for model labels, its confidence.
+Every session SHALL receive a **mode** (creative / reactive / consuming), a **purpose** (lookup / reply / follow-link / browse, or n/a for non-web work such as coding), a **project** (a Sunsama channel or `none`), and an **alignment** with the intended task (on-task / supporting / off-task, or `no-intent` when there is none). Each label SHALL record its source (rule, cache, model or user) and, for model labels, its confidence.
 
 #### Scenario: Labeled session
 - **WHEN** labeling finishes
 - **THEN** every session has all four labels, each with a recorded source
+
+#### Scenario: Coding session purpose
+- **WHEN** a session is in Zed or a terminal on a project
+- **THEN** its purpose is `n/a`
 
 #### Scenario: No intent
 - **WHEN** a session has no intended task

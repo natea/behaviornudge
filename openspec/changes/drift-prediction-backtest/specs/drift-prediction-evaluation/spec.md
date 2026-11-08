@@ -7,7 +7,11 @@ Compares swappable drift predictors on the user's historical drift episodes, und
 ## ADDED Requirements
 
 ### Requirement: Common predictor contract
-Every predictor SHALL accept the sessions strictly before a decision time, the decision time and the intended task. It SHALL return a drift probability for the drift window, a ranked list of likely next activity keys with scores, a predictor identifier and the prediction latency. Predictors SHALL be selectable by name from configuration.
+Every predictor SHALL accept the sessions that ended before a decision time, the decision time, the intended task, and the activity key of the session just starting at that time. It SHALL return a drift probability for the drift window, a ranked list of likely next activity keys with scores, a predictor identifier and the prediction latency. Predictors SHALL be selectable by name from configuration.
+
+#### Scenario: Arrival site is known
+- **WHEN** a predictor is queried at a LinkedIn messaging entry that started at 14:02 and has not ended
+- **THEN** it receives `linkedin.com/messaging` as the current activity key, and that session is not in its history
 
 #### Scenario: New predictor added
 - **WHEN** a new predictor that meets the contract is registered

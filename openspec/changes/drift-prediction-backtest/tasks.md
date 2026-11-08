@@ -47,16 +47,16 @@ Ordering note: groups 1–9 produce a full end-to-end run with **rule-only label
 
 ## 8. BehaviorGPT predictor
 
-- [ ] 8.1 Build the activity catalog (one row per activity key; `name`, `brand`, `categories` = [mode, drift-prone]; `event_type`/`group` = `product`; all 15 columns present) as parquet, and upload it once with `embed(..., wait=True)`, storing the catalog id in `data/`; verify the parquet passes a column check and that `list_catalogs()` shows the catalog
-- [ ] 8.2 Implement the BehaviorGPT predictor: history → `View(key)` per session, `Order([key])` for sessions ≥ 10 min, real timestamps, `User(timezone="America/New_York")`; drift score = summed score of consuming keys in the top K, plus a rank-based variant; all calls go through the outbound gate; verify with a test using a mocked client that checks the request contains only keys and timestamps, then one live call that returns ranked items
-- [ ] 8.3 Handle failures and timeouts by recording the failure and continuing; verify with a mocked error test that the run continues and the failure is reported
+- [x] 8.1 Build the activity catalog (one row per activity key; `name`, `brand`, `categories` = [mode, drift-prone]; `event_type`/`group` = `product`; all 15 columns present) as parquet, and upload it once with `embed(..., wait=True)`, storing the catalog id in `data/`; verify the parquet passes a column check and that `list_catalogs()` shows the catalog
+- [x] 8.2 Implement the BehaviorGPT predictor: history → `View(key)` per session, `Order([key])` for sessions ≥ 10 min, real timestamps, `User(timezone="America/New_York")`; drift score = summed score of consuming keys in the top K, plus a rank-based variant; all calls go through the outbound gate; verify with a test using a mocked client that checks the request contains only keys and timestamps, then one live call that returns ranked items
+- [x] 8.3 Handle failures and timeouts by recording the failure and continuing; verify with a mocked error test that the run continues and the failure is reported
 
 ## 9. Evaluation harness and report (hackathon demo point)
 
-- [ ] 9.1 Implement the rolling weekly evaluation: query each registered predictor at every episode entry with history before `at`, and train/fit only on prior weeks; verify with a test that asserts no session after `at` reaches any predictor
-- [ ] 9.2 Compute metrics per predictor and week (ROC-AUC, PR-AUC, precision/recall at ≤ 5 nudges/working day, median lead time, false alarms/day, latency, breakdowns by trigger, hour and intent source with per-group episode counts) and exclude failures from metrics; verify with a unit test on hand-computed toy predictions
-- [ ] 9.3 Add the separate pre-entry analysis at trigger moments; verify on a fixture with a meeting-ended trigger followed by a drift
-- [ ] 9.4 Generate `data/report.md` with charts, the corrected-time-per-task table, label-source coverage, intent-source coverage and the recommendation (BehaviorGPT vs baseline, with reason); verify by running `uv run behaviornudge report` end to end on real data with rule-only labels and reading the report
+- [x] 9.1 Implement the rolling weekly evaluation: query each registered predictor at every episode entry with history before `at`, and train/fit only on prior weeks; verify with a test that asserts no session after `at` reaches any predictor
+- [x] 9.2 Compute metrics per predictor and week (ROC-AUC, PR-AUC, precision/recall at ≤ 5 nudges/working day, median lead time, false alarms/day, latency, breakdowns by trigger, hour and intent source with per-group episode counts) and exclude failures from metrics; verify with a unit test on hand-computed toy predictions
+- [x] 9.3 Add the separate pre-entry analysis at trigger moments; verify on a fixture with a meeting-ended trigger followed by a drift
+- [x] 9.4 Generate `data/report.md` with charts, the corrected-time-per-task table, label-source coverage, intent-source coverage and the recommendation (BehaviorGPT vs baseline, with reason); verify by running `uv run behaviornudge report` end to end on real data with rule-only labels and reading the report
 
 ## 10. Jev labeling layer
 

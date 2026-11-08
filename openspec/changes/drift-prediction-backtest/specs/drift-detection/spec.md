@@ -22,7 +22,7 @@ An episode entry SHALL be any session on a drift-prone site whose purpose is loo
 - **THEN** purposeful YouTube sessions become episode entries on the next run
 
 ### Requirement: Classify episodes as drift or clean
-An episode SHALL be a drift when, within 15 minutes of entry, at least 3 minutes of activity labeled both consuming and off-task (or consuming with no intent) occur before any on-task or creative session. Otherwise it SHALL be a clean visit. The window and threshold SHALL be configurable.
+An episode SHALL be a drift when, within 15 minutes after the entry session, at least 3 minutes of consuming activity that is off-task or has no intent occur before a return to work: an on-task or creative session lasting at least 60 seconds. Otherwise it is clean. Window, threshold and return length SHALL be configurable.
 
 #### Scenario: Reply then feed
 - **WHEN** the user replies on LinkedIn messaging for 2 minutes, then spends 6 minutes on `linkedin.com/feed` while the intended task is "Client tests"
@@ -31,6 +31,10 @@ An episode SHALL be a drift when, within 15 minutes of entry, at least 3 minutes
 #### Scenario: Reply then back to work
 - **WHEN** the user replies on LinkedIn for 2 minutes, then returns to Zed on the intended project
 - **THEN** the episode is a clean visit
+
+#### Scenario: Brief glance at the editor is not a return
+- **WHEN** the user replies on LinkedIn for 1 minute, glances at Zed for 20 seconds, then spends 6 minutes on `linkedin.com/feed` off-task
+- **THEN** the episode is a drift, because the 20-second Zed session is shorter than the 60-second return length
 
 #### Scenario: Feed is the task
 - **WHEN** the user browses the LinkedIn feed while the intended task is "Alex re LI post" and the feed session is labeled on-task

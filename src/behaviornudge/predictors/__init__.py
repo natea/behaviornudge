@@ -21,6 +21,7 @@ class DriftScore:
     ranked_next: list[tuple[str, float]] = field(default_factory=list)
     model_id: str = ""
     latency_ms: float = 0.0
+    extras: dict = field(default_factory=dict)  # adapter-specific variants (e.g. best consuming rank)
 
 
 class LookAheadError(AssertionError):

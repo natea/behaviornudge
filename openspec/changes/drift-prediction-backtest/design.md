@@ -131,7 +131,9 @@ Everything in this section lives inside the BehaviorGPT adapter. None of it leak
   - Sessions of ≥ 10 min become an `Order([key])`, signaling commitment.
   - Timestamps are real; `User(timezone="America/New_York")`.
 - **Score:** `complete(..., limit=K)` returns ranked keys, and the drift score is the summed score of consuming keys in the top K. Because the scale of the scores is not documented, a rank-based variant is reported alongside (the best rank of any consuming key).
-- `predict=` is left at the SDK default; other values are undocumented, so we won't guess.
+- `predict=` is left at the SDK default (`"view"`: the next item looked at).
+- **Transport: raw API with real timestamps (user decision, 2026-11-08).** The SDK's `complete()` re-stamps every history event a few milliseconds before "now", which would hide the real hour and weekday of past episodes. The adapter therefore builds requests with the SDK's public models (`UnboxAIRequest`, `SessionEvent`, `View`/`Order`) carrying each session's **real timestamp**, plus the request-level as-of `timestamp` = the decision time, and posts them to `POST /vector/recommendations` with the same `UNBOXAI_API_KEY` (`x-api-key`). `register_event=False` so Unbox does not store the history. Work blocks (gaps > 30 min) become separate `session_id`s.
+- **Catalog scope:** keys seen in at least 5 sessions get their own catalog item; rarer keys collapse into one `other-web` / `other-app` item. This limits which visited sites are uploaded and helps the model generalize.
 
 ### D8. Adapter 2: local baseline (see D12)
 A local model of the next activity type given (current key, previous key, hour of day, weekday), with smoothing, trained only on data before each test week. It's cheap, transparent, and the bar BehaviorGPT must clear.
