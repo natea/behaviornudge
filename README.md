@@ -6,7 +6,7 @@ You leave real work to do something specific on LinkedIn or X, like replying to 
 
 behaviornudge reads the screen activity your Mac already records. It finds the moments when a purposeful visit turned into feed-scrolling and tests which model predicts those moments early enough to nudge you back. The long-term goal is a nudge that fires *before* the drift: at the trigger (a meeting just ended, Claude is working and you're waiting), on arrival ("you came to reply to Alex"), or once the reason for the visit is done ("reply sent. Back to your project?").
 
-Built at a hackathon around [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavior model that predicts what someone will do next.
+Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy), a [Sundai Club](https://www.sundai.club) hackathon at MIT on November 8, 2026. The event was centered on [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavioral model that predicts what someone will do next.
 
 > **Status: work in progress.** This repo currently contains the *offline backtest*: it builds a labeled timeline from local data, detects drift episodes, and compares predictors. Live nudges come in a later change. See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
 
