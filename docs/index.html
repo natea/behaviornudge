@@ -3,21 +3,325 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>behaviornudge docs</title>
-<meta http-equiv="refresh" content="0; url=specs/">
+<title>behaviornudge: catch the drift before it starts</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232E5B86'/%3E%3Cpath d='M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<meta name="description" content="A Mac tool that notices when a purposeful visit to LinkedIn, X or Instagram turns into feed-scrolling, and nudges you back to the task you planned.">
 <style>
-  :root { color-scheme: light dark; }
-  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; margin: 0; padding: 48px 16px; background: #F5F7F8; color: #18202B; }
-  @media (prefers-color-scheme: dark) { body { background: #12171E; color: #E7ECF2; } a { color: #7FB0DD; } }
-  main { max-width: 36rem; margin: 0 auto; }
-  a { color: #2E5B86; }
+:root {
+  --ink: #18202B; --ink-2: #4A5565; --ink-3: #7A8494;
+  --paper: #F5F7F8; --card: #FFFFFF; --line: #D5DBE2; --line-2: #E6EAEF;
+  --flow: #2E5B86; --flow-soft: #E3ECF5;
+  --creative: #2F7A55; --reactive: #A66F12; --consuming: #B0346A;
+  --desk-a: #C9D6E3; --desk-b: #E9DCCF; --desk-c: #D8E4DA;
+  --glass: rgba(246, 247, 249, .82); --glass-line: rgba(0,0,0,.08); --glass-ink: #1D1D1F; --glass-ink-2: #3C3C43;
+  --menu: rgba(250, 250, 252, .96);
+  --shadow: 0 1px 2px rgba(24,32,43,.06), 0 2px 8px rgba(24,32,43,.05);
+  --note-shadow: 0 10px 30px rgba(20,30,45,.18), 0 1px 3px rgba(20,30,45,.12);
+  --serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+    --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+    --flow: #7FB0DD; --flow-soft: #1E2C3B;
+    --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+    --desk-a: #1F2B3A; --desk-b: #2E2530; --desk-c: #1D2C27;
+    --glass: rgba(44, 46, 52, .82); --glass-line: rgba(255,255,255,.1); --glass-ink: #F5F5F7; --glass-ink-2: #C7C7CC;
+    --menu: rgba(52, 54, 60, .97);
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+    --note-shadow: 0 10px 30px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+  --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+  --flow: #7FB0DD; --flow-soft: #1E2C3B;
+  --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+  --desk-a: #1F2B3A; --desk-b: #2E2530; --desk-c: #1D2C27;
+  --glass: rgba(44, 46, 52, .82); --glass-line: rgba(255,255,255,.1); --glass-ink: #F5F5F7; --glass-ink-2: #C7C7CC;
+  --menu: rgba(52, 54, 60, .97);
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --note-shadow: 0 10px 30px rgba(0,0,0,.45), 0 1px 3px rgba(0,0,0,.3);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.55 var(--sans); }
+a { color: var(--flow); text-underline-offset: 2px; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+/* nav */
+nav.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(160deg, #3C78AE, #22476B); display: grid; place-items: center; }
+nav.top ul { display: flex; gap: 20px; list-style: none; margin: 0; padding: 0; font-size: 15px; }
+nav.top ul a { color: var(--ink-2); text-decoration: none; }
+nav.top ul a:hover { color: var(--flow); }
+@media (max-width: 560px) { nav.top ul li.opt { display: none; } nav.top ul { gap: 14px; font-size: 14px; } }
+.hero > * { min-width: 0; }
+
+/* hero */
+.hero { display: grid; gap: 40px; padding: 32px 0 56px; align-items: center; }
+@media (min-width: 900px) { .hero { grid-template-columns: 1fr 1.05fr; padding: 48px 0 80px; } }
+.eyebrow { font: 600 13px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--consuming); margin: 0 0 16px; }
+h1 { font: 600 clamp(36px, 6vw, 56px)/1.05 var(--serif); letter-spacing: -.02em; margin: 0 0 20px; text-wrap: balance; }
+.lede { font-size: 19px; color: var(--ink-2); margin: 0 0 28px; max-width: 34rem; }
+.cta { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid var(--line); color: var(--ink); background: var(--card); box-shadow: var(--shadow); }
+.btn.primary { background: var(--flow); border-color: var(--flow); color: var(--paper); }
+.btn:hover { border-color: var(--flow); }
+
+/* desktop scene */
+.desk { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 16 / 10.5; width: 100%;
+  background: radial-gradient(120% 90% at 10% 0%, var(--desk-b), transparent 60%), radial-gradient(90% 90% at 100% 100%, var(--desk-c), transparent 60%), var(--desk-a);
+  border: 1px solid var(--line); box-shadow: var(--shadow); }
+.menubar { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; font: 600 12px/1 var(--sans); color: var(--glass-ink); background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+.menubar span { opacity: .8; font-weight: 500; }
+.browser { position: absolute; left: 6%; top: 15%; width: 64%; bottom: 9%; border-radius: 10px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--note-shadow); overflow: hidden; }
+.chrome { height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 10px; border-bottom: 1px solid var(--line-2); }
+.chrome i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: block; }
+.chrome .url { margin-left: 10px; flex: 1; height: 16px; border-radius: 5px; background: var(--line-2); font: 10px/16px var(--sans); color: var(--ink-3); padding-left: 8px; overflow: hidden; white-space: nowrap; }
+.feed { padding: 12px; display: grid; gap: 10px; }
+.post { border: 1px solid var(--line-2); border-radius: 8px; padding: 10px; display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+.post .av { width: 22px; height: 22px; border-radius: 50%; background: var(--line); }
+.post .ln { height: 6px; border-radius: 3px; background: var(--line-2); margin-bottom: 6px; }
+.post .img { height: 46px; border-radius: 6px; background: var(--flow-soft); grid-column: 2; }
+.desk .note { position: absolute; right: 3%; top: calc(26px + 3%); width: min(355px, 58%); animation: slide 7s ease-in-out infinite; }
+@keyframes slide { 0%, 6% { transform: translateX(115%); opacity: 0; } 14%, 86% { transform: none; opacity: 1; } 94%, 100% { transform: translateX(115%); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .desk .note { animation: none; } }
+@media (max-width: 560px) { .desk { aspect-ratio: auto; height: 300px; } .desk .note { width: 86%; } .browser { width: 80%; } }
+
+/* notification */
+.note { font-family: var(--sans); color: var(--glass-ink); background: var(--glass); backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid var(--glass-line); border-radius: 18px; box-shadow: var(--note-shadow); padding: 11px 12px 11px 11px; display: grid; grid-template-columns: 36px 1fr auto; gap: 0 10px; align-items: start; text-align: left; }
+.note .ico { width: 36px; height: 36px; border-radius: 9px; grid-row: span 2; background: linear-gradient(160deg, #3C78AE, #22476B); display: grid; place-items: center; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.25); }
+.note .ico svg { width: 22px; height: 22px; }
+.note .t { font-weight: 650; font-size: 13.5px; line-height: 1.3; }
+.note .when { font-size: 12px; color: var(--glass-ink-2); opacity: .8; }
+.note .b { grid-column: 2 / 4; font-size: 13px; line-height: 1.35; color: var(--glass-ink-2); }
+.note .opts { grid-column: 2 / 4; margin-top: 8px; display: flex; justify-content: flex-end; }
+.note .opts span { font-size: 12px; font-weight: 550; padding: 4px 10px; border-radius: 7px; background: rgba(127,127,127,.16); }
+
+/* gallery */
+section { padding: 56px 0; border-top: 1px solid var(--line-2); }
+h2 { font: 600 clamp(26px, 3.6vw, 36px)/1.15 var(--serif); letter-spacing: -.01em; margin: 0 0 12px; text-wrap: balance; }
+.sub { color: var(--ink-2); max-width: 44rem; margin: 0 0 32px; }
+.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+.scene { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
+.stage { padding: 26px 18px; background: radial-gradient(120% 120% at 0% 0%, var(--desk-b), transparent 60%), var(--desk-a); }
+.scene .cap { padding: 16px 18px 18px; display: grid; gap: 6px; }
+.scene h3 { margin: 0; font-size: 16px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--sans); letter-spacing: .02em; padding: 4px 7px; border-radius: 6px; background: var(--flow-soft); color: var(--flow); }
+.chip.silent { background: transparent; border: 1px solid var(--line); color: var(--ink-3); }
+.scene p { margin: 0; font-size: 15px; color: var(--ink-2); }
+.scene .trig { font-size: 13.5px; color: var(--ink-3); }
+.note-caption { font-size: 13.5px; color: var(--ink-3); margin-top: 20px; }
+
+/* actions menu */
+.feedback { display: grid; gap: 32px; align-items: center; }
+@media (min-width: 860px) { .feedback { grid-template-columns: 1fr 1fr; } }
+.menu-stage { position: relative; padding: 28px 18px 190px; border-radius: 14px; border: 1px solid var(--line); background: radial-gradient(120% 120% at 100% 0%, var(--desk-c), transparent 60%), var(--desk-a); }
+.menu { position: absolute; right: 30px; top: 132px; width: 190px; padding: 5px; border-radius: 11px; background: var(--menu); border: 1px solid var(--glass-line); box-shadow: var(--note-shadow); font-size: 13px; color: var(--glass-ink); }
+.menu div { padding: 5px 10px; border-radius: 6px; }
+.menu div.on { background: #2F6FD0; color: #fff; }
+.menu hr { border: 0; border-top: 1px solid var(--glass-line); margin: 4px 6px; }
+dl.acts { margin: 0; display: grid; gap: 14px; }
+dl.acts dt { font-weight: 650; }
+dl.acts dd { margin: 2px 0 0; color: var(--ink-2); }
+
+/* how */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); counter-reset: s; }
+.steps li { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); counter-increment: s; }
+.steps li::before { content: counter(s); display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--flow-soft); color: var(--flow); font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.steps h3 { margin: 0 0 6px; font-size: 17px; }
+.steps p { margin: 0; color: var(--ink-2); font-size: 15px; }
+.modes { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.m { font: 600 12px/1 var(--sans); padding: 4px 7px; border-radius: 6px; border: 1px solid currentColor; }
+.m.c { color: var(--creative); } .m.r { color: var(--reactive); } .m.x { color: var(--consuming); }
+
+.privacy ul { margin: 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 8px; max-width: 46rem; }
+.privacy li strong { color: var(--ink); }
+
+/* links */
+.links { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.link { display: block; padding: 20px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); text-decoration: none; color: var(--ink); }
+.link:hover { border-color: var(--flow); }
+.link strong { display: block; font-size: 17px; margin-bottom: 4px; color: var(--flow); }
+.link span { color: var(--ink-2); font-size: 15px; }
+pre { margin: 24px 0 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; overflow-x: auto; font: 13.5px/1.6 var(--mono); color: var(--ink); }
+pre .c { color: var(--ink-3); }
+
+footer { padding: 32px 0 48px; border-top: 1px solid var(--line-2); color: var(--ink-3); font-size: 14px; }
+footer p { margin: 0 0 6px; }
 </style>
 </head>
 <body>
-<main>
-  <h1>behaviornudge</h1>
-  <p>Redirecting to the <a href="specs/">OpenSpec specs and changes</a>.</p>
-  <p>Also: <a href="architecture.html">architecture</a> · <a href="https://github.com/natea/behaviornudge">source on GitHub</a></p>
-</main>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M15.5 5.5 19 8.5l-3.5 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1 -1)"/></symbol>
+</svg>
+
+<div class="wrap">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="./"><span class="logo"><svg width="17" height="17" aria-hidden="true"><use href="#mark"/></svg></span>behaviornudge</a>
+    <ul>
+      <li class="opt"><a href="#nudges">Nudges</a></li>
+      <li><a href="specs/#/specs">Specs</a></li>
+      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="https://github.com/natea/behaviornudge">GitHub</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <div>
+      <p class="eyebrow">For Mac · open source · local-first</p>
+      <h1>Catch the drift before it starts.</h1>
+      <p class="lede">You open LinkedIn to answer one message. Twenty-five minutes later you're still in the feed. A blocklist can't fix this, because half your real work happens on those same sites. behaviornudge notices when a visit with a purpose turns into scrolling, and nudges you back to the task you planned.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/natea/behaviornudge">Get it on GitHub</a>
+        <a class="btn" href="#nudges">See the nudges</a>
+      </div>
+    </div>
+    <div class="desk" role="img" aria-label="A Mac desktop with a LinkedIn feed open and a notification from behaviornudge reading: Scrolling LinkedIn? Task at hand: Write demo script (current Sunsama task)">
+      <div class="menubar">Chrome <span>Mon 10:42</span></div>
+      <div class="browser" aria-hidden="true">
+        <div class="chrome"><i></i><i></i><i></i><div class="url">linkedin.com/feed</div></div>
+        <div class="feed">
+          <div class="post"><div class="av"></div><div><div class="ln" style="width:40%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:70%"></div></div><div class="img"></div></div>
+          <div class="post"><div class="av"></div><div><div class="ln" style="width:35%"></div><div class="ln" style="width:85%"></div></div><div class="img"></div></div>
+        </div>
+      </div>
+      <div class="note" aria-hidden="true">
+        <div class="ico"><svg><use href="#mark"/></svg></div>
+        <div class="t">Scrolling LinkedIn?</div><div class="when">now</div>
+        <div class="b">Task at hand: Write demo script (current Sunsama task)</div>
+        <div class="opts"><span>Options</span></div>
+      </div>
+    </div>
+  </header>
+</div>
+
+<section id="nudges">
+  <div class="wrap">
+    <h2>What you'll see while drifting</h2>
+    <p class="sub">Six kinds of nudge, each tied to a moment when drift tends to start. Every one names the task you meant to be doing, taken from your Sunsama timer or timebox, a calendar block, your call, or the project an agent is working on.</p>
+    <div class="grid">
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">On LinkedIn for a reason?</div><div class="when">now</div><div class="b">Task at hand: Client tests (current Sunsama task)</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>Arrival <span class="chip">Tink</span></h3>
+          <p>You came to reply, look someone up, or open a link. Do that one thing, then go back.</p>
+          <p class="trig">After 20 s on a drift-prone site while your task is something else.</p></div>
+      </article>
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">Scrolling X?</div><div class="when">now</div><div class="b">Task at hand: Write demo script (current Sunsama task)</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>Feed landing <span class="chip">Tink</span></h3>
+          <p>You went straight to the feed, with no message or link that brought you there.</p>
+          <p class="trig">After 45 s on a LinkedIn, X or Instagram feed while a task is at hand.</p></div>
+      </article>
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">Done on LinkedIn? Back to it.</div><div class="when">now</div><div class="b">Task at hand: Client tests (current Sunsama task)</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>Purpose done <span class="chip">Glass</span></h3>
+          <p>The reply is sent and the scrolling has begun. This is the moment to leave.</p>
+          <p class="trig">After 30 s of scrolling right after a visit with a purpose.</p></div>
+      </article>
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">8 min on X</div><div class="when">now</div><div class="b">Task at hand: Deep Work — Client Projects (calendar)</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>Off-task <span class="chip">Sosumi</span></h3>
+          <p>A longer stretch of scrolling while your calendar says you're doing something else.</p>
+          <p class="trig">After 8 min of scrolling while a task is at hand.</p></div>
+      </article>
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">Stay present</div><div class="when">now</div><div class="b">You're in Weekly team sync.</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>In a call <span class="chip silent">silent</span></h3>
+          <p>You're scrolling with a meeting open. No sound, so nobody else on the call hears it.</p>
+          <p class="trig">After 30 s of scrolling while a call app is using your microphone.</p></div>
+      </article>
+
+      <article class="scene">
+        <div class="stage"><div class="note"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">Agent's on it. Stay with it?</div><div class="when">now</div><div class="b">The agent is working on behaviornudge. Review the plan or line up the next step.</div><div class="opts"><span>Options</span></div></div></div>
+        <div class="cap"><h3>Agent working <span class="chip">Pop</span></h3>
+          <p>Claude is busy in your terminal, and the wait has turned into scrolling.</p>
+          <p class="trig">After 2 min of scrolling while a herdr agent pane is working.</p></div>
+      </article>
+
+    </div>
+    <p class="note-caption">These are illustrations drawn with the app's real notification text and buttons. Task and meeting names are examples. All timings, sounds, quiet hours and the daily limit (8 nudges) can be changed in <code>behaviornudge.toml</code>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap feedback">
+    <div class="menu-stage" aria-label="A behaviornudge notification with its Options menu open, showing four buttons: Back to task, Too soon, Legit task, Snooze 30 min" role="img">
+      <div class="note" aria-hidden="true"><div class="ico"><svg><use href="#mark"/></svg></div><div class="t">Done on LinkedIn? Back to it.</div><div class="when">now</div><div class="b">Task at hand: Client tests (current Sunsama task)</div><div class="opts"><span>Options</span></div></div>
+      <div class="menu" aria-hidden="true"><div class="on">Back to task</div><div>Too soon</div><div>Legit task</div><div>Snooze 30 min</div><hr><div>Close</div></div>
+    </div>
+    <div>
+      <h2>One click teaches it</h2>
+      <p class="sub" style="margin-bottom:20px">Every nudge has four buttons. Your answers change when, and whether, the next one comes.</p>
+      <dl class="acts">
+        <div><dt>Back to task</dt><dd>The nudge helped. It counts toward the return-to-work rate.</dd></div>
+        <div><dt>Too soon</dt><dd>Next time, this kind of nudge waits 1.5× longer in the same context.</dd></div>
+        <div><dt>Legit task</dt><dd>This activity counts as on-task for this task from now on, both live and in backtests.</dd></div>
+        <div><dt>Snooze 30 min</dt><dd>Pauses all nudges for half an hour.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How it decides</h2>
+    <p class="sub">Rules decide when to nudge. A model sorts your activity into kinds, and another model is being tested on whether it can predict drift.</p>
+    <ol class="steps">
+      <li><h3>Watch</h3><p>It reads the screen-activity history your Mac already records with Retrace, plus the front app, the browser tab, whether a call has the mic, and herdr agent status.</p></li>
+      <li><h3>Label</h3><p>Rules label most activities, and TypeSafe Jev labels the unclear rest, as one of:</p><p class="modes" style="margin-top:10px"><span class="m c">creative</span><span class="m r">reactive</span><span class="m x">consuming</span></p></li>
+      <li><h3>Compare</h3><p>It checks what you're doing against what you planned (Sunsama timer, timebox or calendar) and fires at the moments where drift starts, with a cooldown and a daily limit.</p></li>
+      <li><h3>Predict</h3><p>Unbox AI's BehaviorGPT scores each moment in shadow mode. In the backtest it beat a baseline built from your own history in 18 of 28 weeks, though both signals are still weak.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="privacy">
+  <div class="wrap">
+    <h2>Private by design</h2>
+    <ul>
+      <li><strong>Your screen stays on your Mac.</strong> Screen text, URLs and screenshots never leave it.</li>
+      <li><strong>What it sends is limited and logged.</strong> Only activity keys and trimmed titles go out, through an allowlisted gate that logs every request.</li>
+      <li><strong>It never listens to calls.</strong> Call detection only checks which call apps are using the microphone.</li>
+      <li><strong>The source is open</strong> under the MIT license, so you can read exactly what it does.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Dig deeper</h2>
+    <div class="links">
+      <a class="link" href="specs/#/specs"><strong>Specs →</strong><span>Every capability and change, planned with OpenSpec and viewable in the browser with spek.</span></a>
+      <a class="link" href="architecture.html"><strong>Architecture →</strong><span>An interactive diagram of the sources, labeling, prediction and live engine.</span></a>
+      <a class="link" href="https://github.com/natea/behaviornudge"><strong>Source on GitHub →</strong><span>Setup, usage, the backtest report and the code.</span></a>
+    </div>
+<pre><span class="c"># macOS on Apple Silicon, with uv and jhammant/retrace</span>
+git clone https://github.com/natea/behaviornudge.git && cd behaviornudge
+uv sync
+uv run behaviornudge nudge test off-task   <span class="c"># see a sample nudge</span>
+uv run behaviornudge nudge run             <span class="c"># start the live engine</span></pre>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Built at <a href="https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy">Sundai Hack 148 – Behavioral Models</a> at MIT, November 8, 2026, around <a href="https://github.com/Unbox-AI/behaviorgpt">Unbox AI's BehaviorGPT</a>.</p>
+    <p>MIT © 2026 Nate Aune</p>
+  </div>
+</footer>
 </body>
 </html>

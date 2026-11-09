@@ -10,7 +10,7 @@ Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https:
 
 > **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. On real data, BehaviorGPT won 18 of 28 test weeks, but both signals are weak (ROC-AUC 0.57 vs 0.51). Live nudges are now available (see below). Browse every spec and change at **[natea.github.io/behaviornudge/specs](https://natea.github.io/behaviornudge/specs/)**, or see the archived backtest in [`openspec/changes/archive/2026-11-08-drift-prediction-backtest/`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/) and the live engine in [`openspec/changes/archive/2026-11-08-live-nudge-engine/`](openspec/changes/archive/2026-11-08-live-nudge-engine/).
 
-Interactive architecture diagram: **[natea.github.io/behaviornudge/architecture.html](https://natea.github.io/behaviornudge/architecture.html)**.
+Project page: **[natea.github.io/behaviornudge](https://natea.github.io/behaviornudge/)**. Interactive architecture diagram: **[natea.github.io/behaviornudge/architecture.html](https://natea.github.io/behaviornudge/architecture.html)**.
 
 ## How it works
 
