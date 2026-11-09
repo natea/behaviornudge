@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>behaviornudge configuration</title>
+<meta name="description" content="Every setting in behaviornudge.toml, explained: sources, intent, drift, labeling, predictors, and nudge timings and sounds.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232E5B86'/%3E%3Cpath d='M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="site.css">
+<style>
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; font: 13px/1 var(--mono); padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink-2); text-decoration: none; }
+.toc a:hover { border-color: var(--flow); color: var(--flow); }
+.row { display: grid; gap: 16px 32px; padding: 28px 0; border-top: 1px solid var(--line-2); scroll-margin-top: 16px; }
+.row:first-child { border-top: 0; padding-top: 0; }
+@media (min-width: 900px) { .row { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } .note-col { position: sticky; top: 16px; align-self: start; } }
+.row > * { min-width: 0; }
+.sec { font: 600 13px/1 var(--mono); color: var(--tok-sec); margin: 0 0 10px; }
+.note-col p { margin: 0; color: var(--ink-2); }
+.note-col p.sec { color: var(--tok-sec); }
+.demo { display: grid; gap: 24px; }
+@media (min-width: 900px) { .demo { grid-template-columns: 1fr 1fr; align-items: start; } }
+table { width: 100%; border-collapse: collapse; font-size: 15px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line-2); }
+th { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+td:nth-child(3) { color: var(--consuming); font-weight: 600; }
+.tablecard { padding: 8px 6px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M15.5 5.5 19 8.5l-3.5 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1 -1)"/></symbol>
+</svg>
+<div class="wrap">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="./"><span class="logo"><svg width="17" height="17" aria-hidden="true"><use href="#mark"/></svg></span>behaviornudge</a>
+    <ul>
+      <li><a href="configuration.html" aria-current="page">Config</a></li>
+      <li><a href="capture.html">Capture</a></li>
+      <li class="opt"><a href="specs/#/specs">Specs</a></li>
+      <li class="opt"><a href="architecture.html">Architecture</a></li>
+      <li><a href="https://github.com/natea/behaviornudge">GitHub</a></li>
+    </ul>
+  </nav>
+  <header class="page">
+    <p class="eyebrow">Configuration</p>
+    <h1>One file, every knob.</h1>
+    <p class="lede">Everything behaviornudge decides is set in <code>behaviornudge.toml</code>: where your activity comes from, what counts as drift, how activity is labeled, which models predict, and when each nudge fires and how it sounds. Copy <code>behaviornudge.example.toml</code> to get started. Below is that file, section by section, with its real defaults.</p>
+    <ul class="toc">
+      <li><a href="#basics">top level</a></li><li><a href="#sources">[sources]</a></li><li><a href="#sessions">[sessions]</a></li>
+      <li><a href="#intent">[intent]</a></li><li><a href="#drift">[drift]</a></li><li><a href="#labeling">[labeling]</a></li>
+      <li><a href="#projects">[projects]</a></li><li><a href="#predictors">[predictors]</a></li><li><a href="#nudge">[nudge]</a></li>
+      <li><a href="#nudge-sounds">[nudge.sounds]</a></li><li><a href="#demo">demo preset</a></li>
+    </ul>
+  </header>
+</div>
+
+<section>
+  <div class="wrap">
+      <article class="row" id="basics">
+        <div class="note-col"><p class="sec">top level</p><h3>Basics</h3><p>Your timezone (used for quiet hours, daily budgets and the weekly evaluation) and where local data lives. API keys never go in this file: they stay in your environment or a git-ignored <code>.env</code>.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="k">timezone</span> = <span class="s">&quot;America/New_York&quot;</span>
+<span class="k">data_dir</span> = <span class="s">&quot;data&quot;</span></code></pre></div>
+      </article>
+      <article class="row" id="sources">
+        <div class="note-col"><p class="sec">[sources]</p><h3>Where activity comes from</h3><p>Paths to the local databases behaviornudge reads, always read-only. Both Retraces are optional; use either or both. <code>retrace_repo</code> and <code>retrace_api</code> are for the launchd agent that keeps Retrace running. <code>sunsama_timer = "mcp"</code> reads your running Sunsama timer through Sunsama's official MCP server. <a href="capture.html">More on the capture sources →</a></p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[sources]</span>
+<span class="k">retrace_jhammant_db</span> = <span class="s">&quot;~/.retrace/retrace.db&quot;</span>
+<span class="k">retrace_to_db</span> = <span class="s">&quot;~/Library/Application Support/Retrace/retrace.db&quot;</span>
+<span class="k">retrace_calendar_helper</span> = <span class="s">&quot;~/.retrace/bin/retrace-calendar&quot;</span>
+<span class="c"># jhammant Retrace checkout and API, for `behaviornudge retrace agent` (launchd supervision)</span>
+<span class="k">retrace_repo</span> = <span class="s">&quot;~/Documents/code/retrace&quot;</span>
+<span class="k">retrace_api</span> = <span class="s">&quot;http://127.0.0.1:8765&quot;</span>
+<span class="k">context_log</span> = <span class="s">&quot;data/context-log.jsonl&quot;</span>
+<span class="k">sunsama_timer</span> = <span class="s">&quot;mcp&quot;</span>     <span class="c"># live timer via https://api.sunsama.com/mcp; run `behaviornudge sunsama-timer --login` once</span></code></pre></div>
+      </article>
+      <article class="row" id="sessions">
+        <div class="note-col"><p class="sec">[sessions]</p><h3>How records become sessions</h3><p>Records of the same activity less than 30 s apart merge into one session. Anything shorter than 3 s is treated as passing through, not as doing something.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[sessions]</span>
+<span class="k">merge_gap_s</span> = <span class="n">30</span>        <span class="c"># same-key records closer than this merge into one session</span>
+<span class="k">transition_max_s</span> = <span class="n">3</span>    <span class="c"># shorter activity is a transition, not a session</span></code></pre></div>
+      </article>
+      <article class="row" id="intent">
+        <div class="note-col"><p class="sec">[intent]</p><h3>What you were supposed to be doing</h3><p>Intent comes from your Sunsama timer, then a Sunsama timebox, then a calendar event, then your most recent creative work. Timers you forget to stop are capped at 45 min. Only the calendars you list here are read.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[intent]</span>
+<span class="k">recent_creative_window_min</span> = <span class="n">30</span>
+<span class="k">timer_cap_min</span> = <span class="n">45</span>                       <span class="c"># forgotten-timer cap</span>
+<span class="k">calendar_allowlist</span> = [<span class="s">&quot;Your Name (your-calendar)&quot;</span>]   <span class="c"># exact calendar names as Apple Calendar shows them</span></code></pre></div>
+      </article>
+      <article class="row" id="drift">
+        <div class="note-col"><p class="sec">[drift]</p><h3>What counts as drift</h3><p>A drift episode starts with a purposeful visit to one of these sites. It counts as drift when at least 3 min of off-task scrolling follow within 15 min, before you get back to work for at least 60 s. These settings drive the backtest.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[drift]</span>
+<span class="k">prone_sites</span> = [<span class="s">&quot;linkedin.com&quot;</span>, <span class="s">&quot;x.com&quot;</span>, <span class="s">&quot;instagram.com&quot;</span>]
+<span class="k">window_min</span> = <span class="n">15</span>
+<span class="k">threshold_min</span> = <span class="n">3</span>
+<span class="k">return_min_s</span> = <span class="n">60</span>        <span class="c"># a return to work must last this long; shorter glances are ignored</span>
+<span class="k">nudge_budget_per_day</span> = <span class="n">5</span></code></pre></div>
+      </article>
+      <article class="row" id="labeling">
+        <div class="note-col"><p class="sec">[labeling]</p><h3>Creative, reactive or consuming</h3><p>Rules label most activity. TypeSafe Jev labels the unclear rest, pinned to one model version so backtests are repeatable. Answers with a probability of at least 0.9 are accepted; ones below 0.5 go to your review queue. <code>channel_only = true</code> means task titles are never sent, only their channel.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[labeling]</span>
+<span class="k">classifier_model</span> = <span class="s">&quot;jev-1.14.0&quot;</span>          <span class="c"># pinned; never an alias for a backtest</span>
+<span class="k">accept_probability</span> = <span class="n">0.9</span>                 <span class="c"># probability of the chosen mode (not `confidence`)</span>
+<span class="k">review_probability</span> = <span class="n">0.5</span>
+<span class="k">fits_min</span> = <span class="n">0.3</span>
+<span class="k">channel_only</span> = <span class="n">false</span>                     <span class="c"># true = never send task titles, only channels</span></code></pre></div>
+      </article>
+      <article class="row" id="labeling-modes">
+        <div class="note-col"><p class="sec">[labeling.modes]</p><h3>Define the modes in your own words</h3><p>These definitions are what Jev reads when it decides. Change them, and the labels follow.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[labeling.modes]</span>
+<span class="k">creative</span> = <span class="s">&quot;Writing, building, or making something: coding, drafting, designing, composing.&quot;</span>
+<span class="k">reactive</span> = <span class="s">&quot;Replying, communicating, or looking something up for a specific reason: messages, email, a profile lookup.&quot;</span>
+<span class="k">consuming</span> = <span class="s">&quot;Scrolling feeds and browsing for novelty or shiny objects, without a specific goal.&quot;</span></code></pre></div>
+      </article>
+      <article class="row" id="projects">
+        <div class="note-col"><p class="sec">[projects]</p><h3>Repos to Sunsama channels</h3><p>Maps a code repository's name to the Sunsama channel it belongs to, so work in a repo matches the task you planned.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[projects]</span>
+<span class="c"># repository name -&gt; Sunsama channel (unmapped repos resolve to their repo name)</span>
+<span class="k">&quot;my-repo&quot;</span> = <span class="s">&quot;My Project&quot;</span></code></pre></div>
+      </article>
+      <article class="row" id="predictors">
+        <div class="note-col"><p class="sec">[predictors]</p><h3>Which models predict drift</h3><p>Every predictor implements one interface, so you can switch them on and off here. BehaviorGPT gets your last 50 sessions and returns its top 20 likely next activities.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[predictors]</span>
+<span class="k">enabled</span> = [<span class="s">&quot;baseline&quot;</span>, <span class="s">&quot;behaviorgpt&quot;</span>]
+<span class="k">behaviorgpt_market</span> = <span class="s">&quot;us&quot;</span>
+<span class="k">behaviorgpt_top_k</span> = <span class="n">20</span>
+<span class="k">behaviorgpt_history_sessions</span> = <span class="n">50</span>
+<span class="k">behaviorgpt_order_min</span> = <span class="n">10</span></code></pre></div>
+      </article>
+      <article class="row" id="nudge">
+        <div class="note-col"><p class="sec">[nudge]</p><h3>When nudges fire</h3><p>Every timing, the daily budget, cooldowns, snooze length and quiet hours. <code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). <code>call_allowlist</code> lists the apps whose microphone use counts as being in a call.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[nudge]</span>
+<span class="k">enabled</span> = <span class="n">true</span>
+<span class="k">daily_budget</span> = <span class="n">8</span>
+<span class="k">cooldown_min</span> = <span class="n">15</span>                 <span class="c"># per nudge type and site</span>
+<span class="k">snooze_min</span> = <span class="n">30</span>
+<span class="k">quiet_hours</span> = []                  <span class="c"># e.g. [[&quot;21:30&quot;, &quot;07:00&quot;]] in local time</span>
+<span class="k">arrival_delay_s</span> = <span class="n">20</span>
+<span class="k">feed_arrival_delay_s</span> = <span class="n">45</span>         <span class="c"># landing straight on a LinkedIn/X/Instagram feed during a task</span>
+<span class="k">purpose_done_delay_s</span> = <span class="n">30</span>
+<span class="k">off_task_threshold_min</span> = <span class="n">8</span>
+<span class="k">in_call_delay_s</span> = <span class="n">30</span>
+<span class="k">agent_delay_min</span> = <span class="n">2</span>
+<span class="k">too_soon_factor</span> = <span class="n">1.5</span>
+<span class="k">too_soon_cap</span> = <span class="n">4.0</span>
+<span class="k">call_end_grace_s</span> = <span class="n">45</span>
+<span class="k">calls_silence_others</span> = <span class="n">true</span>       <span class="c"># during calls only the silent in-call nudge fires; false = others too (silently)</span>
+<span class="k">live_jev</span> = <span class="n">true</span>                   <span class="c"># background Jev labels for unknown live activities</span>
+<span class="k">call_allowlist</span> = [<span class="s">&quot;us.zoom.xos&quot;</span>, <span class="s">&quot;com.microsoft.teams&quot;</span>, <span class="s">&quot;com.tinyspeck.slackmacgap&quot;</span>, <span class="s">&quot;com.apple.FaceTime&quot;</span>,
+                  <span class="s">&quot;com.apple.avconferenced&quot;</span>, <span class="s">&quot;net.whatsapp.WhatsApp&quot;</span>, <span class="s">&quot;com.webex&quot;</span>, <span class="s">&quot;com.cisco.webexmeetings&quot;</span>,
+                  <span class="s">&quot;com.hnc.Discord&quot;</span>, <span class="s">&quot;com.google.Chrome&quot;</span>, <span class="s">&quot;company.thebrowser.Browser&quot;</span>, <span class="s">&quot;com.brave.Browser&quot;</span>,
+                  <span class="s">&quot;com.apple.Safari&quot;</span>, <span class="s">&quot;com.apple.WebKit&quot;</span>, <span class="s">&quot;com.microsoft.edgemac&quot;</span>]</code></pre></div>
+      </article>
+      <article class="row" id="nudge-sounds">
+        <div class="note-col"><p class="sec">[nudge.sounds]</p><h3>A sound for each nudge</h3><p>Any macOS system sound name, the path to a sound file, or <code>"none"</code>. The in-call nudge is silent so nobody on the call hears it.</p></div>
+        <div class="code-col"><pre class="toml"><code><span class="h">[nudge.sounds]</span>                    <span class="c"># macOS system sound name, a sound file path, or &quot;none&quot;</span>
+<span class="k">arrival</span> = <span class="s">&quot;Tink&quot;</span>
+<span class="k">purpose_done</span> = <span class="s">&quot;Glass&quot;</span>
+<span class="k">off_task</span> = <span class="s">&quot;Sosumi&quot;</span>
+<span class="k">agent_working</span> = <span class="s">&quot;Pop&quot;</span>
+<span class="k">in_call</span> = <span class="s">&quot;none&quot;</span>                  <span class="c"># silent so call participants don&#x27;t hear it</span></code></pre></div>
+      </article>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <h2>Example: a two-minute demo</h2>
+    <p class="sub">To show nudges live on stage, shrink the waits from minutes to seconds and lift the daily budget. Change these lines, restart <code>behaviornudge nudge run</code>, and change them back afterwards.</p>
+    <div class="demo">
+      <pre class="toml"><code><span class="h">[nudge]</span>
+<span class="k">daily_budget</span> = <span class="n">50</span>
+<span class="k">cooldown_min</span> = <span class="n">1</span>
+<span class="k">arrival_delay_s</span> = <span class="n">8</span>
+<span class="k">feed_arrival_delay_s</span> = <span class="n">10</span>
+<span class="k">purpose_done_delay_s</span> = <span class="n">8</span>
+<span class="k">off_task_threshold_min</span> = <span class="n">0.5</span>
+<span class="k">in_call_delay_s</span> = <span class="n">10</span>
+<span class="k">agent_delay_min</span> = <span class="n">0.5</span>
+<span class="k">calls_silence_others</span> = <span class="n">false</span></code></pre>
+      <div class="card tablecard"><table><thead><tr><th>setting</th><th>default</th><th>demo</th></tr></thead><tbody>
+<tr><td><code>daily_budget</code></td><td>8</td><td>50</td></tr>
+<tr><td><code>cooldown_min</code></td><td>15</td><td>1</td></tr>
+<tr><td><code>arrival_delay_s</code></td><td>20</td><td>8</td></tr>
+<tr><td><code>feed_arrival_delay_s</code></td><td>45</td><td>10</td></tr>
+<tr><td><code>purpose_done_delay_s</code></td><td>30</td><td>8</td></tr>
+<tr><td><code>off_task_threshold_min</code></td><td>8</td><td>0.5</td></tr>
+<tr><td><code>in_call_delay_s</code></td><td>30</td><td>10</td></tr>
+<tr><td><code>agent_delay_min</code></td><td>2</td><td>0.5</td></tr>
+<tr><td><code>calls_silence_others</code></td><td>true</td><td>false</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="./">← behaviornudge</a> · <a href="capture.html">Capture sources</a> · <a href="https://github.com/natea/behaviornudge/blob/main/behaviornudge.example.toml">behaviornudge.example.toml on GitHub</a></p>
+    <p>MIT © 2026 Nate Aune</p>
+  </div>
+</footer>
+</body>
+</html>

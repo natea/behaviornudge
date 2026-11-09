@@ -1,0 +1,65 @@
+/* Shared styles for behaviornudge subpages (configuration, capture). Matches index.html. */
+:root {
+  --ink: #18202B; --ink-2: #4A5565; --ink-3: #7A8494;
+  --paper: #F5F7F8; --card: #FFFFFF; --line: #D5DBE2; --line-2: #E6EAEF;
+  --flow: #2E5B86; --flow-soft: #E3ECF5;
+  --creative: #2F7A55; --reactive: #A66F12; --consuming: #B0346A;
+  --code-bg: #FBFCFD; --tok-key: #2E5B86; --tok-str: #2F7A55; --tok-num: #A66F12; --tok-sec: #B0346A; --tok-com: #7A8494;
+  --shadow: 0 1px 2px rgba(24,32,43,.06), 0 2px 8px rgba(24,32,43,.05);
+  --serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+    --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+    --flow: #7FB0DD; --flow-soft: #1E2C3B;
+    --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+    --code-bg: #151B23; --tok-key: #7FB0DD; --tok-str: #6CC497; --tok-num: #E0AE52; --tok-sec: #E77AA8; --tok-com: #8592A3;
+    --shadow: 0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #E7ECF2; --ink-2: #B3BDCA; --ink-3: #8592A3;
+  --paper: #12171E; --card: #1A212B; --line: #2D3744; --line-2: #232C37;
+  --flow: #7FB0DD; --flow-soft: #1E2C3B;
+  --creative: #6CC497; --reactive: #E0AE52; --consuming: #E77AA8;
+  --code-bg: #151B23; --tok-key: #7FB0DD; --tok-str: #6CC497; --tok-num: #E0AE52; --tok-sec: #E77AA8; --tok-com: #8592A3;
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); }
+a { color: var(--flow); text-underline-offset: 2px; }
+code { font: .88em var(--mono); background: var(--flow-soft); padding: 1px 5px; border-radius: 5px; }
+.wrap { max-width: 68rem; margin: 0 auto; padding: 0 16px; }
+@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+nav.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+.logo { width: 26px; height: 26px; border-radius: 7px; background: linear-gradient(160deg, #3C78AE, #22476B); display: grid; place-items: center; }
+nav.top ul { display: flex; gap: 20px; list-style: none; margin: 0; padding: 0; font-size: 15px; }
+nav.top ul a { color: var(--ink-2); text-decoration: none; }
+nav.top ul a:hover, nav.top ul a[aria-current] { color: var(--flow); }
+@media (max-width: 600px) { nav.top ul li.opt { display: none; } nav.top ul { gap: 14px; font-size: 14px; } }
+
+header.page { padding: 32px 0 40px; }
+.eyebrow { font: 600 13px/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--consuming); margin: 0 0 16px; }
+h1 { font: 600 clamp(34px, 5.5vw, 50px)/1.08 var(--serif); letter-spacing: -.02em; margin: 0 0 18px; text-wrap: balance; }
+.lede { font-size: 19px; color: var(--ink-2); margin: 0; max-width: 44rem; }
+section { padding: 48px 0; border-top: 1px solid var(--line-2); }
+h2 { font: 600 clamp(26px, 3.6vw, 34px)/1.15 var(--serif); letter-spacing: -.01em; margin: 0 0 12px; text-wrap: balance; }
+h3 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; }
+.sub { color: var(--ink-2); max-width: 46rem; margin: 0 0 28px; }
+p { max-width: 46rem; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+pre.toml { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); color: var(--ink); }
+.toml .k { color: var(--tok-key); } .toml .s { color: var(--tok-str); } .toml .n { color: var(--tok-num); }
+.toml .h { color: var(--tok-sec); font-weight: 650; } .toml .c { color: var(--tok-com); font-style: italic; }
+
+footer { padding: 32px 0 48px; border-top: 1px solid var(--line-2); color: var(--ink-3); font-size: 14px; }
+footer p { margin: 0 0 6px; }
+pre code { background: none; padding: 0; border-radius: 0; font: inherit; }

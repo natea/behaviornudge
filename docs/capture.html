@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>behaviornudge capture sources</title>
+<meta name="description" content="Where behaviornudge's activity history comes from: Retrace.to, the original source, and jhammant's open-source Retrace, the one behaviornudge uses now.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232E5B86'/%3E%3Cpath d='M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="site.css">
+<style>
+.pair { display: grid; gap: 20px; }
+@media (min-width: 860px) { .pair { grid-template-columns: 1fr 1fr; } }
+.src { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.src .tag { align-self: flex-start; font: 600 12px/1 var(--sans); padding: 5px 9px; border-radius: 6px; }
+.tag.then { background: var(--line-2); color: var(--ink-2); }
+.tag.now { background: var(--flow-soft); color: var(--flow); }
+.src h3 { margin: 0; }
+.src p { margin: 0; color: var(--ink-2); }
+.src dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; font-size: 15px; }
+.src dt { color: var(--ink-3); }
+.src dd { margin: 0; }
+.src .stat { font: 600 15px/1.4 var(--sans); color: var(--ink); border-top: 1px solid var(--line-2); padding-top: 14px; margin-top: auto; }
+.src .stat span { font-weight: 400; color: var(--ink-3); }
+
+.tablecard { overflow-x: auto; padding: 4px 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 620px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--line-2); }
+thead th { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+tbody th { font-weight: 600; width: 22%; }
+tr:last-child > * { border-bottom: 0; }
+
+.lanes { padding: 24px; display: grid; gap: 14px; }
+.lane { display: grid; grid-template-columns: 9.5rem 1fr; gap: 12px; align-items: center; font-size: 14px; }
+.lane .lbl { color: var(--ink-2); }
+.track { position: relative; height: 26px; border-radius: 6px; background: var(--line-2); }
+.bar { position: absolute; top: 0; bottom: 0; border-radius: 6px; font: 600 11.5px/26px var(--sans); color: #fff; padding: 0 8px; white-space: nowrap; overflow: hidden; }
+.b1 { background: var(--flow); } .b2 { background: var(--reactive); } .b3 { background: var(--consuming); }
+.dot { position: absolute; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--consuming); }
+.lane.result .track { background: transparent; border: 1px dashed var(--line); }
+.legend { font-size: 14px; color: var(--ink-3); margin: 4px 0 0; }
+@media (max-width: 560px) { .lane { grid-template-columns: 1fr; gap: 4px; } }
+
+.split { display: grid; gap: 20px; }
+@media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; } }
+.split .card { padding: 22px; }
+.split ul { margin: 10px 0 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 6px; }
+pre.sh { margin: 20px 0 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); color: var(--ink); }
+pre.sh .c { color: var(--tok-com); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M15.5 5.5 19 8.5l-3.5 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1 -1)"/></symbol>
+</svg>
+<div class="wrap">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="./"><span class="logo"><svg width="17" height="17" aria-hidden="true"><use href="#mark"/></svg></span>behaviornudge</a>
+    <ul>
+      <li><a href="configuration.html">Config</a></li>
+      <li><a href="capture.html" aria-current="page">Capture</a></li>
+      <li class="opt"><a href="specs/#/specs">Specs</a></li>
+      <li class="opt"><a href="architecture.html">Architecture</a></li>
+      <li><a href="https://github.com/natea/behaviornudge">GitHub</a></li>
+    </ul>
+  </nav>
+  <header class="page">
+    <p class="eyebrow">Capture sources</p>
+    <h1>It reads the history your Mac already keeps.</h1>
+    <p class="lede">behaviornudge doesn't record your screen itself. It reads what a screen-history app has already stored on your Mac, always read-only, and turns it into a timeline of activities. Two such apps are supported: <strong>Retrace.to</strong>, where this project started, and <strong>jhammant's open-source Retrace</strong>, which it uses now.</p>
+  </header>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="pair">
+      <article class="card src">
+        <span class="tag then">Where it started</span>
+        <h3>Retrace.to</h3>
+        <p>A Rewind-style screen recorder for the Mac (<a href="https://retrace.to">retrace.to</a>, by haseab). It was the first source behaviornudge read. Its big advantage is exact durations: it stores every stretch of time spent in one app or window.</p>
+        <dl>
+          <dt>Reads</dt><dd>the <code>segment</code> table: app, exact start and end, window title, browser URL</dd>
+          <dt>Database</dt><dd><code>~/Library/Application Support/Retrace/retrace.db</code></dd>
+          <dt>Setting</dt><dd><code>sources.retrace_to_db</code></dd>
+        </dl>
+        <p class="stat">243,576 segments <span>since April 11, 2026, in the history the backtest used</span></p>
+      </article>
+      <article class="card src">
+        <span class="tag now">What it uses now</span>
+        <h3>Retrace by jhammant</h3>
+        <p>A private, on-device “rewind” for Mac and Windows (<a href="https://github.com/jhammant/retrace">github.com/jhammant/retrace</a>, Apache-2.0). It captures the screen live, pulls out the text, writes a one-line caption with Apple's on-device model, and deletes the raw screenshot. It also imports Screen Time, browser history and your calendar.</p>
+        <dl>
+          <dt>Reads</dt><dd>captures (time, app, window title, URL, caption), Screen Time durations, Chrome and Safari visits, and calendar events through its <code>retrace-calendar</code> helper</dd>
+          <dt>Database</dt><dd><code>~/.retrace/retrace.db</code></dd>
+          <dt>Settings</dt><dd><code>sources.retrace_jhammant_db</code>, <code>retrace_calendar_helper</code>, <code>retrace_repo</code>, <code>retrace_api</code></dd>
+        </dl>
+        <p class="stat">4,122 captures · 10,103 Screen Time records · 58,529 browser visits <span>at the hackathon</span></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Side by side</h2>
+    <p class="sub">What each source gives behaviornudge. Both are optional, and when both are present they're combined.</p>
+    <div class="card tablecard">
+      <table>
+        <thead><tr><th></th><th>Retrace.to</th><th>Retrace by jhammant</th></tr></thead>
+        <tbody>
+          <tr><th>What a record is</th><td>A segment: one app or window, with a start and an end</td><td>A capture: a moment on screen, every few seconds while you're active</td></tr>
+          <tr><th>Durations</th><td>Exact</td><td>From Screen Time; a capture alone stands in for at most 90 s</td></tr>
+          <tr><th>Window title and URL</th><td>Yes</td><td>Yes, plus Chrome and Safari history between captures</td></tr>
+          <tr><th>What's on screen</th><td>Not read by behaviornudge</td><td>A one-line on-device caption; the full text stays in Retrace</td></tr>
+          <tr><th>Calendar</th><td>No</td><td>Apple Calendar through EventKit (a Google calendar can sync into it)</td></tr>
+          <tr><th>Away time</th><td>—</td><td>Paused while you're idle, locked or asleep, so it's never counted as activity</td></tr>
+          <tr><th>Live API</th><td>—</td><td>Local only, on <code>127.0.0.1:8765</code>, plus a read-only MCP server</td></tr>
+          <tr><th>How it keeps running</th><td>The Retrace.to app</td><td>A launchd agent from behaviornudge: starts at login, restarts within seconds if it dies</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How the sources are combined</h2>
+    <p class="sub">When two sources describe the same moment, the most precise one wins: exact segments first, then Screen Time durations, then point captures. Browser visits fill in the URL where an app record doesn't have one. Every record then becomes a coarse activity key such as <code>linkedin.com/feed</code> or <code>linkedin.com/messaging</code>, and keys merge into sessions.</p>
+    <div class="card lanes" role="img" aria-label="Three source lanes over the same ten minutes, and the merged timeline that keeps the most precise record for each moment.">
+      <div class="lane"><span class="lbl">1 · Retrace.to segment</span><div class="track"><div class="bar b1" style="left:4%;width:38%">editor · repo</div><div class="bar b1" style="left:46%;width:16%">messaging</div></div></div>
+      <div class="lane"><span class="lbl">2 · Screen Time</span><div class="track"><div class="bar b2" style="left:4%;width:56%">Code editor</div><div class="bar b2" style="left:62%;width:34%">Chrome</div></div></div>
+      <div class="lane"><span class="lbl">3 · Captures</span><div class="track"><span class="dot" style="left:20%"></span><span class="dot" style="left:52%"></span><span class="dot" style="left:68%"></span><span class="dot" style="left:76%"></span><span class="dot" style="left:86%"></span></div></div>
+      <div class="lane result"><span class="lbl">Merged timeline</span><div class="track"><div class="bar b1" style="left:4%;width:38%">editor · repo</div><div class="bar b1" style="left:46%;width:16%">messaging</div><div class="bar b3" style="left:62%;width:34%">linkedin.com/feed</div></div></div>
+      <p class="legend">Where the segments end, Screen Time says how long Chrome stayed in front, and the captures and browser history say what was on the page: the feed.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>History and live are separate</h2>
+    <div class="split">
+      <div class="card">
+        <h3>History: the Retraces</h3>
+        <p style="margin:0;color:var(--ink-2)">The timeline built from these sources feeds:</p>
+        <ul>
+          <li>the drift episodes and the weekly backtest</li>
+          <li>the baseline model built from your own history</li>
+          <li>the history BehaviorGPT sees when it scores a moment</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Live nudges: watched directly</h3>
+        <p style="margin:0;color:var(--ink-2)">So nudges arrive within seconds, the live engine doesn't wait for Retrace. A small native helper watches:</p>
+        <ul>
+          <li>which app is in front, and the current browser tab</li>
+          <li>whether a call app is using the microphone (never what's said)</li>
+          <li>idle and lock state, and herdr agent status</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Private and read-only</h2>
+    <p class="sub">Every database is opened with SQLite's read-only mode, so behaviornudge can never change Retrace's data. Screen text, URLs and screenshots stay on your Mac. Only activity keys and trimmed titles go out, through an allowlisted gate that logs every request.</p>
+    <h3>Keeping Retrace running</h3>
+    <p style="color:var(--ink-2)">Gaps in capture become gaps in your history. behaviornudge can put jhammant's Retrace under launchd so it starts at login, restarts if it crashes, and warns you in <code>nudge status</code> when capture stops.</p>
+<pre class="sh">uv run behaviornudge retrace agent install --replace   <span class="c"># --replace stops a Retrace you started by hand</span>
+uv run behaviornudge retrace agent status              <span class="c"># agent, capture health, interpreter, log</span></pre>
+    <p style="color:var(--ink-2);margin-top:16px">Processes started by launchd don't inherit your terminal's permissions, so grant Screen Recording and Accessibility once to the Python interpreter that <code>install</code> names.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="./">← behaviornudge</a> · <a href="configuration.html">Configuration</a> · <a href="architecture.html">Architecture</a> · <a href="specs/#/specs">Specs</a></p>
+    <p>Retrace.to and Retrace by jhammant are separate projects by their own authors. MIT © 2026 Nate Aune</p>
+  </div>
+</footer>
+</body>
+</html>

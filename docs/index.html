@@ -143,6 +143,16 @@ dl.acts dd { margin: 2px 0 0; color: var(--ink-2); }
 .m { font: 600 12px/1 var(--sans); padding: 5px 9px; border-radius: 6px; border: 1px solid currentColor; }
 .m.c { color: var(--creative); } .m.r { color: var(--reactive); } .m.x { color: var(--consuming); }
 
+.two { display: grid; gap: 28px; align-items: center; }
+@media (min-width: 860px) { .two { grid-template-columns: 1fr 1fr; } }
+.two > * { min-width: 0; }
+pre.toml { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; overflow-x: auto; font: 13.5px/1.65 var(--mono); color: var(--ink); box-shadow: var(--shadow); }
+.toml .k { color: var(--flow); } .toml .s { color: var(--creative); } .toml .n { color: var(--reactive); } .toml .h { color: var(--consuming); font-weight: 650; } .toml .c { color: var(--ink-3); font-style: italic; }
+.srcmini { display: grid; gap: 12px; }
+.srcmini div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); display: grid; gap: 2px; }
+.srcmini strong { font-size: 17px; }
+.srcmini span { color: var(--ink-2); font-size: 15px; }
+
 .privacy ul { margin: 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 8px; max-width: 46rem; }
 .privacy li strong { color: var(--ink); }
 
@@ -169,8 +179,10 @@ footer p { margin: 0 0 6px; }
     <a class="brand" href="./"><span class="logo"><svg width="17" height="17" aria-hidden="true"><use href="#mark"/></svg></span>behaviornudge</a>
     <ul>
       <li class="opt"><a href="#nudges">Nudges</a></li>
-      <li><a href="specs/#/specs">Specs</a></li>
-      <li><a href="architecture.html">Architecture</a></li>
+      <li><a href="configuration.html">Config</a></li>
+      <li><a href="capture.html">Capture</a></li>
+      <li class="opt"><a href="specs/#/specs">Specs</a></li>
+      <li class="opt"><a href="architecture.html">Architecture</a></li>
       <li><a href="https://github.com/natea/behaviornudge">GitHub</a></li>
     </ul>
   </nav>
@@ -289,6 +301,43 @@ footer p { margin: 0 0 6px; }
   </div>
 </section>
 
+<section>
+  <div class="wrap two">
+    <div>
+      <h2>Tune every nudge</h2>
+      <p class="sub" style="margin-bottom:16px">Timings, the daily budget, cooldowns, quiet hours, the sound for each nudge, which calendars count and which sites are drift-prone are all lines in one file, <code>behaviornudge.toml</code>.</p>
+      <a class="btn" href="configuration.html">Every setting, explained →</a>
+    </div>
+<pre class="toml"><span class="h">[nudge]</span>
+<span class="k">daily_budget</span> = <span class="n">8</span>
+<span class="k">cooldown_min</span> = <span class="n">15</span>          <span class="c"># per type and site</span>
+<span class="k">quiet_hours</span> = [[<span class="s">"21:30"</span>, <span class="s">"07:00"</span>]]
+<span class="k">feed_arrival_delay_s</span> = <span class="n">45</span>
+<span class="k">off_task_threshold_min</span> = <span class="n">8</span>
+<span class="k">too_soon_factor</span> = <span class="n">1.5</span>     <span class="c"># after "Too soon"</span>
+
+<span class="h">[nudge.sounds]</span>
+<span class="k">arrival</span> = <span class="s">"Tink"</span>
+<span class="k">off_task</span> = <span class="s">"Sosumi"</span>
+<span class="k">in_call</span> = <span class="s">"none"</span>        <span class="c"># silent in calls</span></pre>
+  </div>
+</section>
+
+<section>
+  <div class="wrap two">
+    <div>
+      <h2>Built on the history your Mac already keeps</h2>
+      <p class="sub" style="margin-bottom:16px">behaviornudge doesn't record your screen. It reads, read-only, what a screen-history app already stores: <strong>Retrace.to</strong>, where it started, and <strong>jhammant's open-source Retrace</strong>, which it uses now, with Screen Time, browser history and your calendar.</p>
+      <a class="btn" href="capture.html">How capture works →</a>
+    </div>
+    <div class="srcmini">
+      <div><strong>Retrace.to</strong><span>exact app and window segments</span></div>
+      <div><strong>Retrace by jhammant</strong><span>live captures with on-device captions, Screen Time, browser history, calendar</span></div>
+      <div><strong>Live helper</strong><span>front app, browser tab, microphone in use, idle, herdr agents</span></div>
+    </div>
+  </div>
+</section>
+
 <section class="privacy">
   <div class="wrap">
     <h2>Private by design</h2>
@@ -306,6 +355,8 @@ footer p { margin: 0 0 6px; }
     <h2>Dig deeper</h2>
     <div class="links">
       <a class="link" href="specs/#/specs"><strong>Specs →</strong><span>Every capability and change, planned with OpenSpec and viewable in the browser with spek.</span></a>
+      <a class="link" href="configuration.html"><strong>Configuration →</strong><span>Every setting in behaviornudge.toml, with its default and what it does.</span></a>
+      <a class="link" href="capture.html"><strong>Capture sources →</strong><span>Retrace.to and jhammant's Retrace: what each records and how they're combined.</span></a>
       <a class="link" href="architecture.html"><strong>Architecture →</strong><span>An interactive diagram of the sources, labeling, prediction and live engine.</span></a>
       <a class="link" href="https://github.com/natea/behaviornudge"><strong>Source on GitHub →</strong><span>Setup, usage, the backtest report and the code.</span></a>
     </div>
