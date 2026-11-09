@@ -129,7 +129,7 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">behaviorgpt_order_min</span> = <span class="n">10</span></code></pre></div>
       </article>
       <article class="row" id="nudge">
-        <div class="note-col"><p class="sec">[nudge]</p><h2 class="row-title">When nudges fire</h2><p>Every timing, the daily budget, cooldowns, snooze length and quiet hours. <code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). <code>call_allowlist</code> lists the apps whose microphone use counts as being in a call.</p></div>
+        <div class="note-col"><p class="sec">[nudge]</p><h2 class="row-title">When nudges fire</h2><p>Every timing, the daily budget, cooldowns, snooze length and quiet hours. <code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). <code>call_allowlist</code> lists the apps whose microphone use counts as being in a call. The <code>messaging_*</code> settings catch inbox-browsing: hopping through 4 or more conversations, or lingering 5 minutes, in Slack, Discord, WhatsApp, Signal, Messages or Telegram during a task. Set <code>messaging_apps = []</code> to turn it off.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[nudge]</span>
 <span class="k">enabled</span> = <span class="n">true</span>
 <span class="k">daily_budget</span> = <span class="n">8</span>
@@ -147,19 +147,26 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">call_end_grace_s</span> = <span class="n">45</span>
 <span class="k">calls_silence_others</span> = <span class="n">true</span>       <span class="c"># during calls only the silent in-call nudge fires; false = others too (silently)</span>
 <span class="k">live_jev</span> = <span class="n">true</span>                   <span class="c"># background Jev labels for unknown live activities</span>
+<span class="c"># messaging drift: hopping through conversations or lingering in messaging apps during a task</span>
+<span class="k">messaging_apps</span> = [<span class="s">&quot;slack&quot;</span>, <span class="s">&quot;discord&quot;</span>, <span class="s">&quot;whatsapp&quot;</span>, <span class="s">&quot;signal&quot;</span>, <span class="s">&quot;messages&quot;</span>, <span class="s">&quot;telegram&quot;</span>,
+                  <span class="s">&quot;app.slack.com&quot;</span>, <span class="s">&quot;discord.com&quot;</span>, <span class="s">&quot;web.whatsapp.com&quot;</span>, <span class="s">&quot;web.telegram.org&quot;</span>]
+<span class="k">messaging_dwell_min</span> = <span class="n">5</span>           <span class="c"># lingering: one messaging stretch this long</span>
+<span class="k">messaging_hop_conversations</span> = <span class="n">4</span>   <span class="c"># hopping: this many different conversations in one stretch...</span>
+<span class="k">messaging_hop_min_s</span> = <span class="n">60</span>          <span class="c"># ...after at least this long</span>
 <span class="k">call_allowlist</span> = [<span class="s">&quot;us.zoom.xos&quot;</span>, <span class="s">&quot;com.microsoft.teams&quot;</span>, <span class="s">&quot;com.tinyspeck.slackmacgap&quot;</span>, <span class="s">&quot;com.apple.FaceTime&quot;</span>,
                   <span class="s">&quot;com.apple.avconferenced&quot;</span>, <span class="s">&quot;net.whatsapp.WhatsApp&quot;</span>, <span class="s">&quot;com.webex&quot;</span>, <span class="s">&quot;com.cisco.webexmeetings&quot;</span>,
                   <span class="s">&quot;com.hnc.Discord&quot;</span>, <span class="s">&quot;com.google.Chrome&quot;</span>, <span class="s">&quot;company.thebrowser.Browser&quot;</span>, <span class="s">&quot;com.brave.Browser&quot;</span>,
                   <span class="s">&quot;com.apple.Safari&quot;</span>, <span class="s">&quot;com.apple.WebKit&quot;</span>, <span class="s">&quot;com.microsoft.edgemac&quot;</span>]</code></pre></div>
       </article>
       <article class="row" id="nudge-sounds">
-        <div class="note-col"><p class="sec">[nudge.sounds]</p><h2 class="row-title">A sound for each nudge</h2><p>Any macOS system sound name, the path to a sound file, or <code>"none"</code>. The in-call nudge is silent so nobody on the call hears it.</p></div>
+        <div class="note-col"><p class="sec">[nudge.sounds]</p><h2 class="row-title">A sound for each nudge</h2><p>Any macOS system sound name, the path to a sound file, or <code>"none"</code>. The in-call nudge is silent so nobody on the call hears it; the messaging nudge uses a gentle Purr.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[nudge.sounds]</span>                    <span class="c"># macOS system sound name, a sound file path, or &quot;none&quot;</span>
 <span class="k">arrival</span> = <span class="s">&quot;Tink&quot;</span>
 <span class="k">purpose_done</span> = <span class="s">&quot;Glass&quot;</span>
 <span class="k">off_task</span> = <span class="s">&quot;Sosumi&quot;</span>
 <span class="k">agent_working</span> = <span class="s">&quot;Pop&quot;</span>
-<span class="k">in_call</span> = <span class="s">&quot;none&quot;</span>                  <span class="c"># silent so call participants don&#x27;t hear it</span></code></pre></div>
+<span class="k">in_call</span> = <span class="s">&quot;none&quot;</span>                  <span class="c"># silent so call participants don&#x27;t hear it</span>
+<span class="k">messaging</span> = <span class="s">&quot;Purr&quot;</span>                <span class="c"># gentle</span></code></pre></div>
       </article>
   </div>
 </section>

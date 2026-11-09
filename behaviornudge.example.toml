@@ -70,6 +70,12 @@ too_soon_cap = 4.0
 call_end_grace_s = 45
 calls_silence_others = true       # during calls only the silent in-call nudge fires; false = others too (silently)
 live_jev = true                   # background Jev labels for unknown live activities
+# messaging drift: hopping through conversations or lingering in messaging apps during a task
+messaging_apps = ["slack", "discord", "whatsapp", "signal", "messages", "telegram",
+                  "app.slack.com", "discord.com", "web.whatsapp.com", "web.telegram.org"]
+messaging_dwell_min = 5           # lingering: one messaging stretch this long
+messaging_hop_conversations = 4   # hopping: this many different conversations in one stretch...
+messaging_hop_min_s = 60          # ...after at least this long
 call_allowlist = ["us.zoom.xos", "com.microsoft.teams", "com.tinyspeck.slackmacgap", "com.apple.FaceTime",
                   "com.apple.avconferenced", "net.whatsapp.WhatsApp", "com.webex", "com.cisco.webexmeetings",
                   "com.hnc.Discord", "com.google.Chrome", "company.thebrowser.Browser", "com.brave.Browser",
@@ -81,3 +87,4 @@ purpose_done = "Glass"
 off_task = "Sosumi"
 agent_working = "Pop"
 in_call = "none"                  # silent so call participants don't hear it
+messaging = "Purr"                # gentle

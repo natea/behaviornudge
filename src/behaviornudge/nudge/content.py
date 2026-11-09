@@ -36,7 +36,7 @@ def _minutes(seconds: float) -> str:
 
 def build(nudge_type: str, *, site: str | None, intent_title: str | None, intent_source: str | None,
           stretch_s: float = 0, call_name: str | None = None, agent_project: str | None = None,
-          feed: bool = False) -> Content:
+          feed: bool = False, app: str | None = None, hopping: bool = False) -> Content:
     task = (intent_title or "").strip()[:80]
     src = SOURCE_LABEL.get(intent_source or "", intent_source or "")
     task_line = f"Task at hand: {task} ({src})" if task else ""
@@ -56,6 +56,12 @@ def build(nudge_type: str, *, site: str | None, intent_title: str | None, intent
         proj = (agent_project or "your project").strip()[:60]
         body = f"The agent is working on {proj}. Review the plan or line up the next step."
         return Content("Agent's on it. Stay with it?", body)
+    if nudge_type == "messaging":
+        from .messaging import label
+        name = label(app)
+        if hopping:
+            return Content(f"Browsing {name} unreads?", task_line or "Pick one thing to answer, then head back.")
+        return Content(f"Still in {name}?", task_line or f"{_minutes(stretch_s)} so far. Time to head back.")
     raise ValueError(f"unknown nudge type {nudge_type!r}")
 
 
@@ -65,4 +71,5 @@ SAMPLES = {
     "off_task": dict(site="x.com", intent_title="Deep Work — Client Projects", intent_source="calendar", stretch_s=480),
     "in_call": dict(site="x.com", intent_title=None, intent_source="call", call_name="New England Music project"),
     "agent_working": dict(site="instagram.com", intent_title="behaviornudge", intent_source="agent", agent_project="behaviornudge"),
+    "messaging": dict(site="slack", intent_title="Client tests", intent_source="timer", app="slack", hopping=True),
 }

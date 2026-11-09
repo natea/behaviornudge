@@ -5,10 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields
 from typing import Any
 
-TYPES = ("arrival", "purpose_done", "off_task", "in_call", "agent_working")
+TYPES = ("arrival", "purpose_done", "off_task", "in_call", "agent_working", "messaging")
 
 DEFAULT_SOUNDS = {"arrival": "Tink", "purpose_done": "Glass", "off_task": "Sosumi",
-                  "agent_working": "Pop", "in_call": "none"}
+                  "agent_working": "Pop", "in_call": "none", "messaging": "Purr"}
+
+# messaging apps (short app names) and web messaging (domains); see design D2 of messaging-drift
+DEFAULT_MESSAGING_APPS = ["slack", "discord", "whatsapp", "signal", "messages", "telegram",
+                          "app.slack.com", "discord.com", "web.whatsapp.com", "web.telegram.org"]
 
 DEFAULT_CALL_ALLOWLIST = [
     "us.zoom.xos", "com.microsoft.teams", "com.tinyspeck.slackmacgap", "com.apple.FaceTime",
@@ -36,6 +40,10 @@ class NudgeSettings:
     call_end_grace_s: float = 45
     calls_silence_others: bool = True  # during calls only the in-call nudge may fire (False: others too, silently)
     live_jev: bool = True             # label unknown live activities with Jev in the background (needs TYPESAFE_API_KEY)
+    messaging_apps: list = field(default_factory=lambda: list(DEFAULT_MESSAGING_APPS))
+    messaging_dwell_min: float = 5        # lingering: one messaging stretch this long during a task
+    messaging_hop_conversations: int = 4  # hopping: this many different conversations in one stretch...
+    messaging_hop_min_s: float = 60       # ...after at least this long
     call_allowlist: list = field(default_factory=lambda: list(DEFAULT_CALL_ALLOWLIST))
     sounds: dict = field(default_factory=lambda: dict(DEFAULT_SOUNDS))
 
@@ -46,6 +54,7 @@ class NudgeSettings:
             "off_task": self.off_task_threshold_min * 60,
             "in_call": self.in_call_delay_s,
             "agent_working": self.agent_delay_min * 60,
+            "messaging": self.messaging_dwell_min * 60,
         }[nudge_type]
 
     def sound(self, nudge_type: str) -> str | None:

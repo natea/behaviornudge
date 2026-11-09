@@ -36,8 +36,10 @@ NOTES: dict[str, tuple[str, str]] = {
                    "BehaviorGPT gets your last 50 sessions and returns its top 20 likely next activities."),
     "nudge": ("When nudges fire", "Every timing, the daily budget, cooldowns, snooze length and quiet hours. "
               "<code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). "
-              "<code>call_allowlist</code> lists the apps whose microphone use counts as being in a call."),
-    "nudge.sounds": ("A sound for each nudge", "Any macOS system sound name, the path to a sound file, or <code>\"none\"</code>. The in-call nudge is silent so nobody on the call hears it."),
+              "<code>call_allowlist</code> lists the apps whose microphone use counts as being in a call. "
+              "The <code>messaging_*</code> settings catch inbox-browsing: hopping through 4 or more conversations, or lingering 5 minutes, "
+              "in Slack, Discord, WhatsApp, Signal, Messages or Telegram during a task. Set <code>messaging_apps = []</code> to turn it off."),
+    "nudge.sounds": ("A sound for each nudge", "Any macOS system sound name, the path to a sound file, or <code>\"none\"</code>. The in-call nudge is silent so nobody on the call hears it; the messaging nudge uses a gentle Purr."),
 }
 
 DEMO = [

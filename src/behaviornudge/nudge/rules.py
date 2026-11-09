@@ -1,6 +1,6 @@
 """Nudge rules (design D5): when a nudge fires, decided in code.
 
-Moments: arrival, purpose-done, off-task, in-call, agent-working. Each fires at most once per
+Moments: arrival, purpose-done, off-task, in-call, agent-working, messaging. Each fires at most once per
 occurrence (visit, stretch, call, agent run), whether it was delivered or suppressed by a gate.
 Gates, in order: global switch -> quiet hours -> snooze -> legit suppression -> cooldown -> budget.
 """
@@ -15,10 +15,11 @@ from zoneinfo import ZoneInfo
 from ..episodes import PURPOSEFUL, site_of
 from ..intent import Intent
 from ..labels import rule_alignment
+from .messaging import messaging_app
 from .settings import NudgeSettings
 from .store import NudgeStore
 
-PRECEDENCE = ["in_call", "purpose_done", "arrival", "agent_working", "off_task"]
+PRECEDENCE = ["in_call", "purpose_done", "arrival", "messaging", "agent_working", "off_task"]
 PURPOSE_WINDOW = timedelta(minutes=15)
 RETURN_S = 60
 AGENT_MIN_WORKING_S = 30
@@ -36,6 +37,7 @@ class Decision:
     call_name: str | None = None
     agent_project: str | None = None
     title: str | None = None
+    hopping: bool = False  # messaging: fired for hopping through conversations (vs lingering)
 
 
 @dataclass
@@ -74,6 +76,8 @@ class RuleEngine:
         self.call_handled: datetime | None = None
         self.feed_handled: datetime | None = None  # start of the same-site consuming run already decided
         self.agent_handled: datetime | None = None
+        self.messaging_handled: datetime | None = None  # start of the messaging stretch already decided
+        self.conversations: dict[str, datetime] = {}  # conversation hash -> first seen (memory only)
 
     # --- helpers --------------------------------------------------------------
     def delay(self, nudge_type: str, site: str | None, intent: Intent) -> float:
@@ -129,6 +133,21 @@ class RuleEngine:
             elif s.seconds >= RETURN_S:
                 break
         return total
+
+    def note_conversation(self, cid: str, now: datetime) -> None:
+        """Record that a messaging conversation (a hash of its normalized title) was open at `now`."""
+        self.conversations.setdefault(cid, now)
+
+    def _messaging_run(self, sessions, now: datetime) -> tuple[float, datetime | None]:
+        """Trailing messaging time across messaging apps; 60 s at anything else ends the stretch."""
+        total, start = 0.0, None
+        for s in reversed(sessions):
+            if messaging_app(s, self.st.messaging_apps):
+                total += (min(s.end, now) - s.start).total_seconds()
+                start = s.start
+            elif s.seconds >= RETURN_S:
+                break
+        return total, start
 
     # --- gates ----------------------------------------------------------------
     def _quiet(self, now: datetime) -> bool:
@@ -226,6 +245,23 @@ class RuleEngine:
         else:
             in_call_stretch = None
 
+        # messaging: hopping through conversations, or lingering, during a task it isn't part of
+        messaging_stretch = None
+        msg_app = messaging_app(cur, self.st.messaging_apps) if cur and self.st.messaging_apps else None
+        if msg_app:
+            run, run_start = self._messaging_run(sessions, now)
+            if run_start:
+                self.conversations = {c: t for c, t in self.conversations.items() if t >= run_start}
+            if (run_start and intent.known and self.messaging_handled != run_start
+                    and alignment(cur, intent) != "on-task"):
+                hopping = (len(self.conversations) >= self.st.messaging_hop_conversations
+                           and run >= self.st.messaging_hop_min_s)
+                if hopping or run >= self.delay("messaging", msg_app, intent):
+                    # no title: conversation names never leave memory
+                    candidates["messaging"] = Decision("messaging", True, None, cur.key, msg_app, intent,
+                                                       stretch_s=run, hopping=hopping)
+                    messaging_stretch = run_start
+
         # agent working and drifting
         if (cur and agent_working_since and self.agent_handled != agent_working_since
                 and (now - agent_working_since).total_seconds() >= AGENT_MIN_WORKING_S and cur.label.mode == "consuming"):
@@ -254,6 +290,8 @@ class RuleEngine:
             self.call_handled = in_call_stretch  # once per away-stretch, not once per call
         elif nudge_type == "agent_working":
             self.agent_handled = agent_working_since
+        elif nudge_type == "messaging":
+            self.messaging_handled = messaging_stretch
         reason = self.gate(nudge_type, d.key, d.site, d.intent, now)
         d.fired, d.reason = reason is None, reason
         return d
