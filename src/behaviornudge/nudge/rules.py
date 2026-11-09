@@ -90,6 +90,24 @@ class RuleEngine:
                 start = s.start
         return total, start
 
+    def _away_from_call(self, s) -> bool:
+        """During a call: consuming anything, or reactive on a drift-prone site (LinkedIn messages).
+        Call-app chat, team chat and work tools don't count."""
+        if s.label.mode == "consuming":
+            return True
+        return s.label.mode == "reactive" and site_of(s.domain, self.prone) is not None
+
+    def _away_run(self, sessions, now: datetime) -> tuple[float, datetime | None]:
+        """Trailing time away from the call; 60 s back in the call or at work ends the stretch."""
+        total, start = 0.0, None
+        for s in reversed(sessions):
+            if self._away_from_call(s):
+                total += (min(s.end, now) - s.start).total_seconds()
+                start = s.start
+            elif s.seconds >= RETURN_S:
+                break
+        return total, start
+
     def _site_consuming_run(self, sessions, site: str, now: datetime) -> tuple[float, datetime | None]:
         """Trailing consuming time on one drift-prone site (feed/post hops add up), and its start."""
         total, start = 0.0, None
@@ -194,15 +212,19 @@ class RuleEngine:
             if drift_s >= self.delay("off_task", site, intent):
                 candidates["off_task"] = Decision("off_task", True, None, cur.key, site, intent, stretch_s=drift_s, title=cur.title)
 
-        # in a call and consuming
-        if cur and call is not None and getattr(call, "active", False) and self.call_handled != call.started \
-                and cur.label.mode == "consuming":
-            run = self._consuming_run(sessions, now)
+        # in a call and away from it: consuming, or reactive on a drift-prone site (e.g. LinkedIn messages)
+        if cur and call is not None and getattr(call, "active", False) and self._away_from_call(cur):
+            run, run_start = self._away_run(sessions, now)
             site = site_of(cur.domain, self.prone) or cur.domain
             call_intent = Intent("call", call.name, None, None, f"call:{call.started.isoformat()}")
-            if run >= self.delay("in_call", site, call_intent):
+            if run_start and self.call_handled != run_start and run >= self.delay("in_call", site, call_intent):
                 candidates["in_call"] = Decision("in_call", True, None, cur.key, site, call_intent, stretch_s=run,
                                                  call_name=call.name, title=cur.title)
+                in_call_stretch = run_start
+            else:
+                in_call_stretch = None
+        else:
+            in_call_stretch = None
 
         # agent working and drifting
         if (cur and agent_working_since and self.agent_handled != agent_working_since
@@ -214,6 +236,9 @@ class RuleEngine:
                 candidates["agent_working"] = Decision("agent_working", True, None, cur.key, site, agent_intent,
                                                        stretch_s=run, agent_project=agent_project, title=cur.title)
 
+        if call is not None and getattr(call, "active", False) and self.st.calls_silence_others:
+            # during a call the call is the intent: only the (silent) in-call nudge may appear
+            candidates = {k: v for k, v in candidates.items() if k == "in_call"}
         if not candidates:
             return None
         nudge_type = next(t for t in PRECEDENCE if t in candidates)
@@ -226,7 +251,7 @@ class RuleEngine:
         elif nudge_type == "off_task":
             self.stretch_handled["off_task"] = stretch_start
         elif nudge_type == "in_call":
-            self.call_handled = call.started
+            self.call_handled = in_call_stretch  # once per away-stretch, not once per call
         elif nudge_type == "agent_working":
             self.agent_handled = agent_working_since
         reason = self.gate(nudge_type, d.key, d.site, d.intent, now)

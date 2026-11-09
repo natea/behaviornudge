@@ -88,7 +88,7 @@ See proposal.md (Why). Facts from the codebase and exploration that shape the ap
  any  --(direct landing on a drift-prone feed, consuming >= feed_arrival_delay, intent known)--> fire ARRIVAL
  VISIT --(consuming off-task/no-intent >= purpose_done_delay within 15 min)--> fire PURPOSE_DONE
  any  --(consuming off-task stretch >= off_task_threshold, intent known)--> fire OFF_TASK
- any  --(call active and consuming >= in_call_delay)--> fire IN_CALL
+ any  --(call active and away >= in_call_delay: consuming, or reactive on a drift-prone site)--> fire IN_CALL (once per away-stretch)
  any  --(agent working >= 30 s and consuming >= agent_delay)--> fire AGENT_WORKING
  work session >= 60 s --> stretch ends (reset)
 ```

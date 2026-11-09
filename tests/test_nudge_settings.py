@@ -32,3 +32,8 @@ def test_user_override_takes_effect():
 def test_unknown_setting_rejected():
     with pytest.raises(ValueError):
         load_settings({"dailly_budget": 3})
+
+
+def test_calls_silence_others_default_on():
+    assert load_settings(None).calls_silence_others is True
+    assert load_settings({"calls_silence_others": False}).calls_silence_others is False

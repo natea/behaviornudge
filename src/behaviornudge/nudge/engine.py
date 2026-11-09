@@ -277,7 +277,9 @@ class NudgeEngine:
             c = content.build(d.type, site=d.site, intent_title=d.intent.title, intent_source=d.intent.source,
                               stretch_s=d.stretch_s, call_name=d.call_name, agent_project=d.agent_project,
                               feed=(d.type == "arrival" and d.stretch_s > 0))
-            sent = self.helper.notify(nid, c.title, c.body, self.st.sound(d.type), d.type)
+            in_call = self.calls.state.active
+            sound = None if in_call else self.st.sound(d.type)  # never play a sound into a call
+            sent = self.helper.notify(nid, c.title, c.body, sound, d.type)
             self.log(f"nudge {nid} [{d.type}] {c.title} | {c.body}" + ("" if sent else " (helper unavailable)"))
         else:
             self.log(f"nudge moment {d.type} suppressed: {d.reason}")

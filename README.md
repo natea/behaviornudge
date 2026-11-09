@@ -8,7 +8,7 @@ behaviornudge reads the screen activity your Mac already records. It finds the m
 
 Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy), a [Sundai Club](https://www.sundai.club) hackathon at MIT on November 8, 2026. The event was centered on [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavioral model that predicts what someone will do next.
 
-> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. In the first run on real data, BehaviorGPT won 17 of 28 test weeks, but both signals are weak (ROC-AUC 0.565 vs 0.513). Live nudges are now available (see below). See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
+> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. On real data, BehaviorGPT won 18 of 28 test weeks, but both signals are weak (ROC-AUC 0.57 vs 0.51). Live nudges are now available (see below). Browse every spec and change in [`docs/specs/index.html`](docs/specs/index.html) (download and open in a browser), or see the archived backtest in [`openspec/changes/archive/2026-11-08-drift-prediction-backtest/`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/) and the live engine's progress in [`openspec/changes/live-nudge-engine/tasks.md`](openspec/changes/live-nudge-engine/tasks.md).
 
 For the interactive architecture diagram, download [`docs/architecture.html`](docs/architecture.html) and open it in a browser.
 
@@ -158,11 +158,11 @@ uv run pytest
 | `helper/BehaviorNudgeHelper.swift` | native helper: notifications with buttons, front app, call detection, idle |
 | `src/behaviornudge/egress.py` | the outbound allowlist and audit log |
 
-This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). The proposal, design, specs and tasks live in [`openspec/changes/`](openspec/changes/):
+This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). Current capabilities live in [`openspec/specs/`](openspec/specs/); changes in [`openspec/changes/`](openspec/changes/):
 
-- `drift-prediction-backtest`: the offline backtest (all 37 tasks done)
-- `live-nudge-engine`: live Mac notifications with feedback (in progress)
-- `easytpp-drift-predictor`: a neural temporal-point-process predictor via [EasyTPP](https://github.com/ant-research/EasyTemporalPointProcess) (proposed)
+- [`drift-prediction-backtest`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/): the offline backtest (done and archived; its specs are in `openspec/specs/`)
+- [`live-nudge-engine`](openspec/changes/live-nudge-engine/): live Mac notifications with feedback (in progress)
+- [`easytpp-drift-predictor`](openspec/changes/easytpp-drift-predictor/): a neural temporal-point-process predictor via [EasyTPP](https://github.com/ant-research/EasyTemporalPointProcess) (proposed)
 
 ## License
 

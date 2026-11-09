@@ -65,6 +65,7 @@ agent_delay_min = 2
 too_soon_factor = 1.5
 too_soon_cap = 4.0
 call_end_grace_s = 45
+calls_silence_others = true       # during calls only the silent in-call nudge fires; false = others too (silently)
 live_jev = true                   # background Jev labels for unknown live activities
 call_allowlist = ["us.zoom.xos", "com.microsoft.teams", "com.tinyspeck.slackmacgap", "com.apple.FaceTime",
                   "com.apple.avconferenced", "net.whatsapp.WhatsApp", "com.webex", "com.cisco.webexmeetings",

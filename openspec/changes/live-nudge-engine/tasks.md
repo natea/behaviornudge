@@ -55,6 +55,10 @@ Ordering note: group 2 proves the riskiest piece (a native notification with but
 
 - [x] 7b.1 Fire the arrival nudge 45 s (`feed_arrival_delay_s`, adjustable by Too soon) after landing directly on a drift-prone site's consuming page while a known, unaligned intent exists; consuming time on the same site adds up across feed/post hops; content says which feed; verify with the "Landing straight on the feed" and "Feed hopping" scenario tests
 
+- [x] 7b.2 In-call nudge also counts reactive activity on drift-prone sites (LinkedIn/X/Instagram messages), not call/team chat or work tools, and fires once per away-stretch within a call (reset after 60 s back in the call or at work); verify with the in-call scenario tests
+
+- [x] 7b.3 Add `calls_silence_others` (default true); when false, other nudges may fire during calls, and every nudge during a call plays no sound; verify with the "Other nudges allowed during calls, silently" scenario test
+
 ## 10. Engine and live run
 
 - [x] 10.1 Implement `behaviornudge nudge run` wiring the helper client, URL poller, herdr subscriber, TimerPoller, calendar refresher, tracker, rules, delivery, feedback and shadow predictor in one process (also writing the context log), plus `nudge status`, `nudge on` / `nudge off` and `nudge snooze N`; verify that `nudge run` starts cleanly, `status` shows helper authorized, the current intent and budget, and Ctrl-C exits cleanly

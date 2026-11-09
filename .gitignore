@@ -17,3 +17,6 @@ behaviornudge.toml
 # local tool logs/caches
 *.log
 .impeccable/
+
+# Clearance (Markdown viewer) temporary previews
+.clearance-rendered-preview-*/

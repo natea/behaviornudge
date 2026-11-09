@@ -202,3 +202,46 @@ def test_snooze_also_holds_feed_landing(tmp_path):
     w.store.set_state("snooze_until", s(20 * 60).isoformat())
     w.tab("https://x.com/home", s(0))
     assert [d.reason for _, d in w.run(s(60), BLOCK)] == ["snoozed"]
+
+
+ZOOMCALL = CallState(True, s(-600), "Zoom", "Prep for Sundai demo")
+
+
+def test_in_call_linkedin_messaging_counts(tmp_path):
+    w = World(tmp_path)
+    w.tab("https://www.linkedin.com/messaging/thread/1/", s(0))
+    ds = w.run(s(40), SUNDAI, call=ZOOMCALL)
+    # no audible arrival at 20 s during the call; the silent in-call nudge fires at 30 s instead
+    assert types(ds) == ["in_call"] and ds[0][0] == s(30) and ds[0][1].call_name == "Prep for Sundai demo"
+
+
+def test_in_call_team_chat_stays_quiet(tmp_path):
+    w = World(tmp_path)
+    w.app("com.tinyspeck.slackmacgap", "Slack", s(0))
+    w.app("us.zoom.xos", "zoom.us", s(60))
+    assert w.run(s(180), NO_INTENT, call=ZOOMCALL) == []
+
+
+def test_second_drift_in_same_call_nudges_again(tmp_path):
+    w = World(tmp_path, cooldown_min=15)
+    w.tab("https://x.com/home", s(0))
+    first = w.run(s(40), NO_INTENT, call=ZOOMCALL)
+    w.app("us.zoom.xos", "zoom.us", s(41))           # back in the call for 15 min
+    w.run(s(41 + 15 * 60), NO_INTENT, call=ZOOMCALL, step=30)
+    w.tab("https://www.instagram.com/", s(42 + 15 * 60))
+    second = w.run(s(42 + 15 * 60 + 40), NO_INTENT, call=ZOOMCALL)
+    assert types(first) == ["in_call"] and types(second) == ["in_call"]
+
+
+def test_same_stretch_does_not_repeat(tmp_path):
+    w = World(tmp_path, cooldown_min=0)
+    w.tab("https://x.com/home", s(0))
+    ds = w.run(s(5 * 60), NO_INTENT, call=ZOOMCALL, step=5)
+    assert types(ds) == ["in_call"]
+
+
+def test_other_nudges_allowed_during_calls_when_switch_off(tmp_path):
+    w = World(tmp_path, calls_silence_others=False)
+    w.tab("https://www.linkedin.com/messaging/thread/1/", s(0))
+    ds = w.run(s(25), SUNDAI, call=ZOOMCALL)
+    assert types(ds) == ["arrival"] and ds[0][0] == s(20)

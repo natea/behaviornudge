@@ -44,15 +44,38 @@ An off-task nudge SHALL fire when consuming, off-task time within one stretch re
 - **THEN** no off-task nudge fires
 
 ### Requirement: In-call nudge
-An in-call nudge SHALL fire when a call is active and the user has been on consuming activity for at least the in-call delay (default 30 s). It applies even when no other intent exists, because the call itself is the intent.
+An in-call nudge SHALL fire when a call is active and the user has been away from it for the in-call delay (default 30 s): on consuming activity, or reactive activity on a drift-prone site (e.g. LinkedIn messages). Call-app chat, team chat and work tools SHALL NOT count. It fires once per stretch and can fire again after 60 s back in the call or at work, subject to the cooldown.
 
 #### Scenario: Browsing during a meeting
 - **WHEN** a Zoom call is active, the calendar event is "New England Music project", and the user has browsed `x.com/home` for 30 s
 - **THEN** an in-call nudge fires naming "New England Music project"
 
+#### Scenario: Messaging on LinkedIn during a meeting
+- **WHEN** a Zoom call is active and the user has been on `linkedin.com/messaging` for 30 s
+- **THEN** an in-call nudge fires
+
+#### Scenario: Other nudges allowed during calls, silently
+- **WHEN** `calls_silence_others` is off, a call is active, and the user has been on `linkedin.com/messaging` for 20 s with a known task
+- **THEN** the arrival nudge fires, and it plays no sound
+
+#### Scenario: Team chat during a call stays quiet
+- **WHEN** a call is active and the user is in Slack or the call app's chat
+- **THEN** no in-call nudge fires
+
+#### Scenario: A second drift in the same call
+- **WHEN** an in-call nudge fired, the user returned to the call for 60 s, and 15 minutes later starts scrolling Instagram for 30 s in the same call
+- **THEN** another in-call nudge fires
+
 #### Scenario: Call with no calendar event
 - **WHEN** a call is active with no matching calendar event
 - **THEN** the in-call nudge names the call app (e.g. "your Zoom call")
+
+### Requirement: Calls silence the other nudges
+While a call is active, the call SHALL be the intent: arrival, purpose-done, off-task and agent-working nudges SHALL NOT fire, so only the silent in-call nudge can appear. A setting (`calls_silence_others`, default on) SHALL allow them during calls; any nudge shown during a call SHALL play no sound.
+
+#### Scenario: No audible nudges during a call
+- **WHEN** a call is active and the user lands on `linkedin.com/messaging`, which would otherwise trigger a 20 s arrival nudge
+- **THEN** no arrival nudge fires, and after 30 s the silent in-call nudge fires instead
 
 ### Requirement: Agent-working nudge
 An agent-working nudge SHALL fire when a herdr agent has been working for at least 30 s and the user has been on consuming, off-task or no-intent activity for at least the agent delay (default 2 minutes). The nudge SHALL name the agent's project.

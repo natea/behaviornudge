@@ -34,6 +34,7 @@ class NudgeSettings:
     too_soon_factor: float = 1.5
     too_soon_cap: float = 4.0
     call_end_grace_s: float = 45
+    calls_silence_others: bool = True  # during calls only the in-call nudge may fire (False: others too, silently)
     live_jev: bool = True             # label unknown live activities with Jev in the background (needs TYPESAFE_API_KEY)
     call_allowlist: list = field(default_factory=lambda: list(DEFAULT_CALL_ALLOWLIST))
     sounds: dict = field(default_factory=lambda: dict(DEFAULT_SOUNDS))
