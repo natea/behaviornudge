@@ -135,6 +135,22 @@ uv run behaviornudge context log
 
 Calendar history is loaded through jhammant Retrace's `retrace-calendar` helper (Apple Calendar, which a Google calendar can sync into). Only calendars on `intent.calendar_allowlist` are used.
 
+### Keeping Retrace running
+
+Gaps in Retrace's capture become gaps in the history, so behaviornudge can put jhammant Retrace's server under launchd. Once installed, it starts at login and restarts within seconds if it dies.
+
+```sh
+uv run behaviornudge retrace agent install --replace   # --replace stops a Retrace you started by hand
+uv run behaviornudge retrace agent status
+uv run behaviornudge retrace agent uninstall
+```
+
+- **Config:** the agent is `~/Library/LaunchAgents/com.behaviornudge.retrace.plist`. It runs `python -m retrace.cli serve` from `sources.retrace_repo` and logs to `~/.retrace/serve.log`.
+- **One-time permission grant:** a process started by launchd doesn't inherit your terminal's privacy permissions. Grant **Screen & System Audio Recording** and **Accessibility** to the Python interpreter that `install` prints, which is the real binary behind Retrace's `.venv/bin/python`. Then run `launchctl kickstart -k gui/$(id -u)/com.behaviornudge.retrace`.
+- **Install check:** `install` waits for a real new capture, not just a healthy API, and tells you if the grant is missing.
+- **Warnings:** `nudge status` and `retrace agent status` warn when the server is down, when captures are failing, or when the capture loop has stopped.
+- **Python upgrades:** if uv upgrades that Python, the binary's path changes and the grant has to be given again; status will warn you when that happens.
+
 ## Development
 
 ```sh
@@ -162,6 +178,7 @@ This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec).
 
 - [`drift-prediction-backtest`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/): the offline backtest (done and archived; its specs are in `openspec/specs/`)
 - [`live-nudge-engine`](openspec/changes/archive/2026-11-08-live-nudge-engine/): live Mac notifications with feedback (done and archived; its specs are in `openspec/specs/`)
+- [`retrace-supervision`](openspec/changes/archive/2026-11-09-retrace-supervision/): keep jhammant Retrace running under launchd and warn when capture stops (done and archived; its spec is in `openspec/specs/`)
 - [`easytpp-drift-predictor`](openspec/changes/easytpp-drift-predictor/): a neural temporal-point-process predictor via [EasyTPP](https://github.com/ant-research/EasyTemporalPointProcess) (proposed)
 
 ## License

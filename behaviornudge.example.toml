@@ -8,6 +8,9 @@ data_dir = "data"
 retrace_jhammant_db = "~/.retrace/retrace.db"
 retrace_to_db = "~/Library/Application Support/Retrace/retrace.db"
 retrace_calendar_helper = "~/.retrace/bin/retrace-calendar"
+# jhammant Retrace checkout and API, for `behaviornudge retrace agent` (launchd supervision)
+retrace_repo = "~/Documents/code/retrace"
+retrace_api = "http://127.0.0.1:8765"
 context_log = "data/context-log.jsonl"
 sunsama_timer = "mcp"     # live timer via https://api.sunsama.com/mcp; run `behaviornudge sunsama-timer --login` once
 

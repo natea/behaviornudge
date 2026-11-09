@@ -252,6 +252,10 @@ def cmd_nudge(args) -> None:
                                      running=running, intent=info.get("intent") if running else None,
                                      current=info.get("current") if running else None,
                                      recent=info.get("recent") if running else None)))
+        from . import retrace_agent as ra
+        rcfg = ra.AgentConfig.from_sources(cfg.section("sources"))
+        rsys = ra.System(rcfg)
+        print(ra.assess(rsys.status(), rsys.health(), now).line())
     elif args.nsub in ("on", "off"):
         store.set_state("enabled", args.nsub == "on")
         print(f"nudges {args.nsub}")
@@ -280,6 +284,24 @@ def cmd_nudge(args) -> None:
         from .nudge.feedback import stats
         since = now - timedelta(days=args.days) if args.days else None
         print(json.dumps(stats(store, since), indent=2))
+
+
+def cmd_retrace_agent(args) -> None:
+    from . import retrace_agent as ra
+
+    cfg = ra.AgentConfig.from_sources(load_config(args.config).section("sources"))
+    sys_ = ra.System(cfg)
+    try:
+        if args.action == "install":
+            h = ra.install(cfg, sys_, replace=args.replace)
+            if h.warn:
+                raise SystemExit(1)
+        elif args.action == "uninstall":
+            ra.uninstall(cfg, sys_)
+        else:
+            print("\n".join(ra.status(cfg, sys_)))
+    except ra.AgentError as e:
+        raise SystemExit(f"error: {e}") from None
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -362,6 +384,13 @@ def main(argv: list[str] | None = None) -> None:
     stp = nds.add_parser("stats", help="live nudge statistics")
     stp.add_argument("--days", type=int, default=None)
     stp.set_defaults(func=cmd_nudge)
+
+    rt = sub.add_parser("retrace", help="jhammant Retrace supervision")
+    rts = rt.add_subparsers(dest="rsub", required=True)
+    ag = rts.add_parser("agent", help="LaunchAgent that keeps Retrace running (start at login, restart on exit)")
+    ag.add_argument("action", choices=["install", "uninstall", "status"])
+    ag.add_argument("--replace", action="store_true", help="stop a Retrace server running outside the agent first")
+    ag.set_defaults(func=cmd_retrace_agent)
 
     args = p.parse_args(argv)
     if getattr(args, "type", None):
