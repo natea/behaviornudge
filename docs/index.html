@@ -111,9 +111,9 @@ section { padding: 56px 0; border-top: 1px solid var(--line-2); }
 h2 { font: 600 clamp(26px, 3.6vw, 36px)/1.15 var(--serif); letter-spacing: -.01em; margin: 0 0 12px; text-wrap: balance; }
 .sub { color: var(--ink-2); max-width: 44rem; margin: 0 0 32px; }
 .grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
-.scene { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; }
-.stage { padding: 26px 18px; background: radial-gradient(120% 120% at 0% 0%, var(--desk-b), transparent 60%), var(--desk-a); }
-.scene .cap { padding: 16px 18px 18px; display: grid; gap: 6px; }
+.scene { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; display: grid; grid-template-rows: subgrid; grid-row: span 2; row-gap: 0; }
+.stage { padding: 26px 18px; display: flex; flex-direction: column; justify-content: center; background: radial-gradient(120% 120% at 0% 0%, var(--desk-b), transparent 60%), var(--desk-a); }
+.scene .cap { padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 6px; }
 .scene h3 { margin: 0; font-size: 22px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .chip { font: 600 11px/1 var(--sans); letter-spacing: .02em; padding: 5px 9px; border-radius: 6px; background: var(--flow-soft); color: var(--flow); }
 .chip.silent { background: transparent; border: 1px solid var(--line); color: var(--ink-3); }
