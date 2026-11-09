@@ -25,7 +25,7 @@ Each notification SHALL offer actions: **Back to task**, **Too soon**, **Legit t
 - **THEN** the engine records the nudge as dismissed
 
 ### Requirement: Sounds per nudge type
-Each nudge type (arrival, purpose-done, off-task, in-call, agent-working) SHALL play a configurable sound: a macOS system sound name, a sound file, or none. In-call nudges SHALL default to no sound so other participants don't hear them.
+Each nudge type (arrival, purpose-done, off-task, in-call, agent-working, messaging) SHALL play a configurable sound: a macOS system sound name, a sound file, or none. In-call nudges SHALL default to no sound so other participants don't hear them. Messaging nudges SHALL default to a gentle sound (Purr).
 
 #### Scenario: Silent in calls
 - **WHEN** an in-call nudge fires with default settings
@@ -34,6 +34,10 @@ Each nudge type (arrival, purpose-done, off-task, in-call, agent-working) SHALL 
 #### Scenario: Custom sound
 - **WHEN** the user sets the off-task sound to `Sosumi`
 - **THEN** off-task nudges play Sosumi
+
+#### Scenario: Gentle messaging sound
+- **WHEN** a messaging nudge fires with default settings
+- **THEN** it plays Purr
 
 ### Requirement: System-level control
 Because nudges come from their own app, the user SHALL be able to turn them off, change their style, or silence them in System Settings → Notifications → behaviornudge, and macOS Focus modes SHALL apply. The engine SHALL detect when notification permission is denied and report it rather than failing silently.

@@ -48,3 +48,33 @@ The system SHALL pause tracking and rules while the screen is locked, asleep, or
 #### Scenario: Screen locked
 - **WHEN** the screen locks with `x.com/home` frontmost
 - **THEN** no off-task time accumulates while locked
+
+### Requirement: Tell conversations apart in messaging apps
+While a messaging app is frontmost, the system SHALL identify the current conversation from the browser tab title (web messaging) or from the latest window title recorded by jhammant Retrace for that app (native messaging, used only when recorded within the last 30 s). Titles SHALL be normalized to drop unread counters, held in memory only as hashes for the current stretch, and never stored, displayed or sent.
+
+#### Scenario: Slack channels
+- **WHEN** Retrace records "general (Channel) - Acme - 1 new item - Slack" and then "general (Channel) - Acme - Slack"
+- **THEN** both count as the same conversation
+
+#### Scenario: No conversation in the title
+- **WHEN** the frontmost app is Signal and its window title is "Signal (2)"
+- **THEN** no conversation is identified, and only the lingering rule can apply
+
+#### Scenario: Retrace not running
+- **WHEN** Retrace's status file is missing or older than 30 s
+- **THEN** tracking continues without conversation identity for native apps
+
+### Requirement: Read tabs from the browser window in front
+When a browser's tab is read by script, the system SHALL check the tab title against the title of the frontmost window of the frontmost process. If they don't match, the answer came from another copy of that browser (for example an automation browser): the URL SHALL be ignored, and the user SHALL be told once per hour, in a notification without nudge buttons, that another copy of the browser is open.
+
+#### Scenario: Automation browser open
+- **WHEN** a second Google Chrome is running and the tab read returns a title that isn't in the front window's title
+- **THEN** that URL is not recorded and one notice names the problem
+
+#### Scenario: Normal browsing
+- **WHEN** the front window's title contains the tab title that was read
+- **THEN** the URL and title are used as before
+
+#### Scenario: Window title unavailable
+- **WHEN** the front window title can't be read (no Accessibility permission, no window)
+- **THEN** the tab read is used as before

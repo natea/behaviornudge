@@ -105,3 +105,14 @@ The system SHALL provide a read-only logger that records, with timestamps, herdr
 #### Scenario: Call recorded in the log
 - **WHEN** a Zoom call starts and ends
 - **THEN** the log gains a call-start entry with the app and meeting name, and a call-end entry, each with its time
+
+### Requirement: Keep the Sunsama sign-in alive
+Renewals of the Sunsama access token SHALL be serialized across threads and processes, and tokens SHALL be re-read from disk once the renewal lock is held, so that a refresh token is never used twice. When a sign-in is needed anyway, the running engine SHALL tell the user once in a notification without nudge buttons, naming the command to run.
+
+#### Scenario: Two renewals at once
+- **WHEN** the timer poller and the timebox refresher both find the access token expired
+- **THEN** one renews it and the other uses the renewed token
+
+#### Scenario: Sign-in expired
+- **WHEN** Sunsama rejects the refresh token
+- **THEN** the engine shows one notice with `behaviornudge sunsama-timer --login` and keeps running on calendar intent
