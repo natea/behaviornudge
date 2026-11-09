@@ -8,9 +8,9 @@ behaviornudge reads the screen activity your Mac already records. It finds the m
 
 Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy), a [Sundai Club](https://www.sundai.club) hackathon at MIT on November 8, 2026. The event was centered on [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavioral model that predicts what someone will do next.
 
-> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. On real data, BehaviorGPT won 18 of 28 test weeks, but both signals are weak (ROC-AUC 0.57 vs 0.51). Live nudges are now available (see below). Browse every spec and change in [`docs/specs/index.html`](docs/specs/index.html) (download and open in a browser), or see the archived backtest in [`openspec/changes/archive/2026-11-08-drift-prediction-backtest/`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/) and the live engine's progress in [`openspec/changes/live-nudge-engine/tasks.md`](openspec/changes/live-nudge-engine/tasks.md).
+> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. On real data, BehaviorGPT won 18 of 28 test weeks, but both signals are weak (ROC-AUC 0.57 vs 0.51). Live nudges are now available (see below). Browse every spec and change at **[natea.github.io/behaviornudge/specs](https://natea.github.io/behaviornudge/specs/)**, or see the archived backtest in [`openspec/changes/archive/2026-11-08-drift-prediction-backtest/`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/) and the live engine's progress in [`openspec/changes/live-nudge-engine/tasks.md`](openspec/changes/live-nudge-engine/tasks.md).
 
-For the interactive architecture diagram, download [`docs/architecture.html`](docs/architecture.html) and open it in a browser.
+Interactive architecture diagram: **[natea.github.io/behaviornudge/architecture.html](https://natea.github.io/behaviornudge/architecture.html)**.
 
 ## How it works
 
@@ -158,7 +158,7 @@ uv run pytest
 | `helper/BehaviorNudgeHelper.swift` | native helper: notifications with buttons, front app, call detection, idle |
 | `src/behaviornudge/egress.py` | the outbound allowlist and audit log |
 
-This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). Current capabilities live in [`openspec/specs/`](openspec/specs/); changes in [`openspec/changes/`](openspec/changes/):
+This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). Browse it all at [natea.github.io/behaviornudge/specs](https://natea.github.io/behaviornudge/specs/) (generated with [spek](https://github.com/spekhq/spek)). Current capabilities live in [`openspec/specs/`](openspec/specs/); changes in [`openspec/changes/`](openspec/changes/):
 
 - [`drift-prediction-backtest`](openspec/changes/archive/2026-11-08-drift-prediction-backtest/): the offline backtest (done and archived; its specs are in `openspec/specs/`)
 - [`live-nudge-engine`](openspec/changes/live-nudge-engine/): live Mac notifications with feedback (in progress)
