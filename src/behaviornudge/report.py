@@ -156,8 +156,9 @@ def caveats(res: dict, names: list[str], label_cov: dict) -> list[str]:
             out.append(f"**{unl:.0%} of your time has no mode label.** Unlabeled time can't count as drift, so drift is undercounted "
                        "and the comparison may change once the Jev layer labels it.")
     if "behaviorgpt" in names:
-        out.append("**Time of day showed no effect in one manual probe.** Shifting one history by 12 hours didn't change BehaviorGPT's "
-                   "answer. Whether it ever uses time is still open.")
+        out.append("**Time of day is still an open question.** Shifting one whole history by 12 hours didn't change BehaviorGPT's "
+                   "answer. That's expected if it reads the delays between events (as its technical report describes), since a "
+                   "uniform shift keeps every delay the same. Whether clock time matters needs a different test.")
     return out
 
 

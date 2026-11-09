@@ -91,10 +91,41 @@ td.win { color: var(--flow); font-weight: 650; }
   <header class="page">
     <p class="eyebrow">Hackathon background</p>
     <h1>Your workday, read as a shopping trip.</h1>
-    <p class="lede"><a href="https://github.com/Unbox-AI/behaviorgpt">BehaviorGPT</a> is Unbox AI's large behavioral model. Given the events in someone's session, it predicts what they'll do next. It was built for e-commerce, where the events are product views and orders. behaviornudge describes your screen time the same way, so BehaviorGPT can answer a new question: <em>you just landed on LinkedIn; is a stretch of scrolling coming?</em></p>
+    <p class="lede"><a href="https://github.com/Unbox-AI/behaviorgpt">BehaviorGPT</a> is Unbox AI's large behavioral model (<a href="https://research.unboxai.com/behaviorgpt-v4-one-large-behavioral-model.pdf">technical report</a>). Given the events in someone's session, it predicts what they'll do next. It was built for e-commerce, where the events are product views and orders. behaviornudge describes your screen time the same way, so BehaviorGPT can answer a new question: <em>you just landed on LinkedIn; is a stretch of scrolling coming?</em></p>
     <p class="lede" style="margin-top:16px">behaviornudge was built at <a href="https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy">Sundai Hack 148</a>, a hackathon centered on BehaviorGPT, so this page documents how it was used. It isn't at the core of how nudges work today: rules decide when to nudge, and BehaviorGPT scores those moments in the background. It may be replaced by a temporal point process model, <a href="specs/#/changes/easytpp-drift-predictor">proposed in the EasyTPP drift predictor change</a>.</p>
   </header>
 </div>
+
+<section>
+  <div class="wrap">
+    <h2>The model behind it</h2>
+    <p class="sub">From Unbox AI's technical report, <a href="https://research.unboxai.com/behaviorgpt-v4-one-large-behavioral-model.pdf"><em>BehaviorGPT-v4: One Large Behavioral Model for Retail, Engagement, and Payments with Zero-Shot Transferability</em></a> (October 8, 2026).</p>
+    <div class="kpis">
+      <div class="card kpi"><div class="v">12.5B</div><div class="l">parameters: a small event embedder and a large sequence model</div></div>
+      <div class="card kpi"><div class="v">150B</div><div class="l">user actions in pretraining (3.6 trillion tokens) from retail, app engagement and payments</div></div>
+      <div class="card kpi"><div class="v">&lt;1 <small>ms</small></div><div class="l">to rank a whole catalog in one pass, per the paper (behaviornudge's 448 ms includes the network)</div></div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>What the paper says</h3>
+        <ul>
+          <li>It's trained like a language model, but to predict the next <em>action</em> instead of the next word.</li>
+          <li>An event enters as its <strong>features</strong> (text, images, numbers), not an ID. That's why a catalog it has never seen works with no training.</li>
+          <li>The <strong>delay between two events</strong> is fed in as an event of its own: a short delay points to closely related next actions, a long one to more varied ones.</li>
+          <li>Used zero-shot on public datasets it never saw, it beat specialist models trained on those datasets.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What that means here</h3>
+        <ul>
+          <li><strong>Catalog text matters.</strong> The model reads each item's name, category and keywords, so behaviornudge gives activities readable names (“linkedin.com feed”) and labels them with their mode and whether the site is drift-prone.</li>
+          <li><strong>Screen time isn't far from its training data.</strong> App engagement is one of its three pretraining domains.</li>
+          <li><strong>Real timestamps matter.</strong> Delays between sessions are inputs, which is why behaviornudge bypasses the SDK call that re-stamps events near “now”.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
@@ -239,7 +270,7 @@ td.win { color: var(--flow); font-weight: 650; }
       <li><strong>The signal is real but small.</strong> 0.57 is better than chance, but not yet good enough to decide nudges on its own. That's why it runs in shadow mode.</li>
       <li><strong>The nudge budget didn't test much.</strong> With about 6 drift-prone visits a day, a budget of 5 lets either model nudge most of them. A budget of 1–2 a day would show whether the top-ranked moments are worth acting on.</li>
       <li><strong>Weekly scores are noisy.</strong> Weeks had between 1 and 24 drifts, so one drift can swing a week.</li>
-      <li><strong>Time of day may not matter to it.</strong> In one manual probe, shifting a history by 12 hours didn't change the answer.</li>
+      <li><strong>Time of day is still an open question.</strong> In one manual probe, shifting a whole history by 12 hours didn't change the answer. That fits the paper: the model sees the delays between events, and a uniform shift leaves every delay the same. Whether clock time matters needs a different test.</li>
       <li><strong>Predicting at the end of a meeting couldn't be judged.</strong> Only 3 of 200 meeting ends were followed by drift.</li>
     </ul>
   </div>
@@ -265,7 +296,7 @@ td.win { color: var(--flow); font-weight: 650; }
 <footer>
   <div class="wrap">
     <p><a href="./">← behaviornudge</a> · <a href="configuration.html">Configuration</a> · <a href="capture.html">Capture sources</a> · <a href="architecture.html">Architecture</a> · <a href="specs/#/specs">Specs</a></p>
-    <p>BehaviorGPT is made by <a href="https://www.unboxai.com">Unbox AI</a>. behaviornudge was built at Sundai Hack 148 – Behavioral Models, MIT, November 8, 2026. MIT © 2026 Nate Aune</p>
+    <p>BehaviorGPT is made by <a href="https://www.unboxai.com">Unbox AI</a> (<a href="https://research.unboxai.com/behaviorgpt-v4-one-large-behavioral-model.pdf">technical report</a>). behaviornudge was built at Sundai Hack 148 – Behavioral Models, MIT, November 8, 2026. MIT © 2026 Nate Aune</p>
   </div>
 </footer>
 </body>
