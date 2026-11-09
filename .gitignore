@@ -20,3 +20,6 @@ behaviornudge.toml
 
 # Clearance (Markdown viewer) temporary previews
 .clearance-rendered-preview-*/
+
+# macOS Finder metadata
+.DS_Store
