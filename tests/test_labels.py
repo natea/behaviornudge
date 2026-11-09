@@ -81,3 +81,65 @@ def test_definitions_change_invalidates_cache_key():
     it = Intent("none")
     other = definitions_fp({"creative": "changed", "reactive": "reply", "consuming": "scroll"})
     assert cache_key(s, it, DEFS) != cache_key(s, it, other)
+
+
+def test_user_label_overrides_rule():
+    from behaviornudge.labels import overlay_user
+    s = S("linkedin.com/feed")
+    rule = rule_label(s, {})
+    rule.set("alignment", rule_alignment(s, rule, Intent("timer", "Prepare outreach list", ref="t9")), "rule")
+    assert rule.alignment == "off-task"
+    user = Label(alignment="on-task", sources={"alignment": "user"})
+    merged = overlay_user(rule, user)
+    assert merged.alignment == "on-task" and merged.sources["alignment"] == "user"
+    assert merged.mode == "consuming" and merged.sources["mode"] == "rule"  # other dims keep the rule
+
+
+def test_model_label_does_not_override_rule():
+    from behaviornudge.labels import overlay_user
+    rule = rule_label(S("x.com/home"), {})
+    model = Label(mode="creative", sources={"mode": "model"})
+    assert overlay_user(rule, model).mode == "consuming"
+
+
+def test_label_all_applies_user_label_first(tmp_path):
+    """End to end: a stored user alignment for (activity, intent) wins over the rule in label_all."""
+    import json, sqlite3
+    from datetime import datetime, UTC
+    from behaviornudge.config import load_config
+    from behaviornudge.labels import LabelStore, cache_key, definitions_fp
+    from behaviornudge.pipeline import label_all
+    from behaviornudge.timeline import Session, write_timeline
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_config(root / "behaviornudge.example.toml")
+    cfg.raw["data_dir"] = str(tmp_path)
+    t0 = datetime(2026, 11, 9, 15, 0, tzinfo=UTC)
+    t1 = datetime(2026, 11, 9, 15, 10, tzinfo=UTC)
+    write_timeline(tmp_path / "timeline.sqlite", [Session(t0, t1, "linkedin.com/feed", "chrome", "linkedin.com", "feed", {"retrace_to"}, "Feed")],
+                   [], "America/New_York", {})
+    (tmp_path / "calendar").mkdir()
+    (tmp_path / "calendar" / "events.json").write_text(json.dumps([{"start": t0.isoformat(), "end": t1.isoformat(),
+        "title": "Prepare outreach list", "calendar": "x", "id": "ev1"}]))
+    first = label_all(cfg)
+    row = sqlite3.connect(tmp_path / "labels.sqlite").execute("SELECT alignment FROM session_labels").fetchone()
+    assert row[0] == "off-task"
+    defs = definitions_fp(cfg.section("labeling").get("modes", {}))
+    s = {"key": "linkedin.com/feed", "title": "Feed"}
+    st = LabelStore(tmp_path / "labels.sqlite")
+    st.put(cache_key(s, Intent("calendar", "Prepare outreach list", None, None, "ev1"), defs),
+           Label(alignment="on-task", sources={"alignment": "user"}))
+    st.close()
+    label_all(cfg)
+    row = sqlite3.connect(tmp_path / "labels.sqlite").execute("SELECT alignment, sources FROM session_labels").fetchone()
+    assert row[0] == "on-task" and json.loads(row[1])["alignment"] == "user"
+
+
+def test_label_store_usable_across_threads(tmp_path):
+    import threading
+    store = LabelStore(tmp_path / "labels.sqlite")
+    store.put("ck", Label(mode="consuming", sources={"mode": "rule"}))
+    out = {}
+    t = threading.Thread(target=lambda: out.update(lab=store.get("ck")))
+    t.start(); t.join()
+    assert out["lab"].mode == "consuming"

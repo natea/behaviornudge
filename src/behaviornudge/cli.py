@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from datetime import UTC, datetime
 
 from .config import load_config
@@ -171,6 +172,116 @@ def cmd_sunsama_timer(args) -> None:
         raise SystemExit(str(e))
 
 
+def cmd_helper_build(args) -> None:
+    from .nudge.helper import build_helper
+    from .nudge.settings import load_settings
+
+    cfg = load_config(args.config)
+    st = load_settings(cfg.section("nudge"))
+    print(json.dumps(build_helper(cfg.data_dir, st.sounds, force=args.force), indent=2))
+
+
+def cmd_nudge_test(args) -> None:
+    import queue
+
+    from .nudge import content
+    from .nudge.helper import HelperClient, app_paths, build_helper
+    from .nudge.settings import load_settings
+
+    cfg = load_config(args.config)
+    st = load_settings(cfg.section("nudge"))
+    build_helper(cfg.data_dir, st.sounds)
+    _, exe = app_paths(cfg.data_dir)
+    events: "queue.Queue[dict]" = queue.Queue()
+    client = HelperClient([str(exe)], events.put, log=print)
+    client.start()
+    c = content.build(args.type, **content.SAMPLES[args.type])
+    sound = st.sound(args.type)
+    deadline_ready = time.time() + 60
+    while time.time() < deadline_ready:
+        try:
+            ev = events.get(timeout=1)
+        except queue.Empty:
+            continue
+        if ev.get("event") == "ready":
+            print(f"helper ready (notifications authorized: {ev.get('authorized')})")
+            break
+    # macOS silently replaces a delivered notification that reuses an identifier (no new banner),
+    # so every test gets a fresh id; clear the old fixed-id test notification too.
+    client.send({"cmd": "withdraw", "id": "test-1"})
+    test_id = f"test-{int(time.time())}"
+    client.notify(test_id, c.title, c.body, sound, args.type)
+    print(f"shown: [{args.type}] {c.title} / {c.body} (sound: {sound or 'none'}); waiting {args.wait}s for a click...")
+    end = time.time() + args.wait
+    while time.time() < end:
+        try:
+            ev = events.get(timeout=1)
+        except queue.Empty:
+            continue
+        if ev.get("event") in ("action", "dismissed", "error"):
+            print(json.dumps(ev))
+            if ev.get("event") != "error":
+                break
+    client.stop()
+
+
+def _nudge_parts(args):
+    from .nudge.settings import load_settings
+    from .nudge.store import NudgeStore
+
+    cfg = load_config(args.config)
+    return cfg, load_settings(cfg.section("nudge")), NudgeStore(cfg.data_dir / "nudges.sqlite")
+
+
+def cmd_nudge(args) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from .nudge.status import status_lines
+
+    now = datetime.now(tz=UTC)
+    if args.nsub == "run":
+        from .nudge.engine import NudgeEngine
+        NudgeEngine(load_config(args.config)).run()
+        return
+    cfg, st, store = _nudge_parts(args)
+    if args.nsub == "status":
+        stat_path = cfg.data_dir / "nudge_status.json"
+        info = json.loads(stat_path.read_text()) if stat_path.exists() else {}
+        running = bool(info) and (now - datetime.fromisoformat(info["updated"])).total_seconds() < 30
+        print("\n".join(status_lines(store, st, now, cfg.timezone, authorized=info.get("authorized") if running else None,
+                                     running=running, intent=info.get("intent") if running else None,
+                                     current=info.get("current") if running else None,
+                                     recent=info.get("recent") if running else None)))
+    elif args.nsub in ("on", "off"):
+        store.set_state("enabled", args.nsub == "on")
+        print(f"nudges {args.nsub}")
+    elif args.nsub == "snooze":
+        until = now + timedelta(minutes=args.minutes)
+        store.set_state("snooze_until", until.isoformat())
+        print(f"snoozed for {args.minutes} min")
+    elif args.nsub == "feedback":
+        from .labels import LabelStore, definitions_fp
+        from .nudge.feedback import FeedbackHandler
+        fb = FeedbackHandler(store, st, LabelStore(cfg.data_dir / "labels.sqlite"),
+                             definitions_fp(cfg.section("labeling").get("modes", {})))
+        if args.faction == "list":
+            data = fb.list()
+            print("waits adjusted by feedback (type, site, intent source -> multiplier):")
+            for a in data["adjustments"]:
+                print(f"  a{a['id']}: {a['type']} on {a['site'] or '-'} ({a['intent_source'] or '-'}) x{a['multiplier']:.2f}")
+            print("legit-task suppressions (no nudges for this activity during this task):")
+            for x in data["suppressions"]:
+                print(f"  s{x['id']}: {x['activity_key']} during {x['intent_title'] or x['intent_ref']}")
+        else:
+            ident = args.id
+            ok = fb.reset_adjustment(int(ident[1:])) if ident.startswith("a") else bool(fb.reset_suppression(int(ident.lstrip("s"))))
+            print("reset" if ok else f"nothing found for {ident}")
+    elif args.nsub == "stats":
+        from .nudge.feedback import stats
+        since = now - timedelta(days=args.days) if args.days else None
+        print(json.dumps(stats(store, since), indent=2))
+
+
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(prog="behaviornudge")
     p.add_argument("--config", default="behaviornudge.toml")
@@ -226,7 +337,35 @@ def main(argv: list[str] | None = None) -> None:
     st.add_argument("--login", action="store_true", help="sign in through the browser (first run)")
     st.set_defaults(func=cmd_sunsama_timer)
 
+    hp = sub.add_parser("helper", help="native macOS helper app")
+    hp.add_argument("action", choices=["build"])
+    hp.add_argument("--force", action="store_true")
+    hp.set_defaults(func=cmd_helper_build)
+
+    nd = sub.add_parser("nudge", help="live nudge engine")
+    nds = nd.add_subparsers(dest="nsub", required=True)
+    nt = nds.add_parser("test", help="show a sample nudge and print the button you click")
+    nt.add_argument("type", choices=["arrival", "purpose_done", "off_task", "in_call", "agent_working",
+                                     "purpose-done", "off-task", "in-call", "agent-working"])
+    nt.add_argument("--wait", type=int, default=90)
+    nt.set_defaults(func=cmd_nudge_test)
+    for name, help_ in [("run", "run the live nudge engine (foreground)"), ("status", "engine, permission, budget, snooze"),
+                        ("on", "turn nudges on"), ("off", "turn nudges off")]:
+        nds.add_parser(name, help=help_).set_defaults(func=cmd_nudge)
+    sn = nds.add_parser("snooze", help="pause nudges for N minutes")
+    sn.add_argument("minutes", type=int, nargs="?", default=30)
+    sn.set_defaults(func=cmd_nudge)
+    fbp = nds.add_parser("feedback", help="review or undo feedback")
+    fbp.add_argument("faction", choices=["list", "reset"])
+    fbp.add_argument("id", nargs="?", help="a<N> (adjusted wait) or s<N> (legit suppression) from `feedback list`")
+    fbp.set_defaults(func=cmd_nudge)
+    stp = nds.add_parser("stats", help="live nudge statistics")
+    stp.add_argument("--days", type=int, default=None)
+    stp.set_defaults(func=cmd_nudge)
+
     args = p.parse_args(argv)
+    if getattr(args, "type", None):
+        args.type = args.type.replace("-", "_")
     args.func(args)
 
 

@@ -49,3 +49,31 @@ behaviorgpt_market = "us"
 behaviorgpt_top_k = 20
 behaviorgpt_history_sessions = 50
 behaviorgpt_order_min = 10
+
+[nudge]
+enabled = true
+daily_budget = 8
+cooldown_min = 15                 # per nudge type and site
+snooze_min = 30
+quiet_hours = []                  # e.g. [["21:30", "07:00"]] in local time
+arrival_delay_s = 20
+feed_arrival_delay_s = 45         # landing straight on a LinkedIn/X/Instagram feed during a task
+purpose_done_delay_s = 30
+off_task_threshold_min = 8
+in_call_delay_s = 30
+agent_delay_min = 2
+too_soon_factor = 1.5
+too_soon_cap = 4.0
+call_end_grace_s = 45
+live_jev = true                   # background Jev labels for unknown live activities
+call_allowlist = ["us.zoom.xos", "com.microsoft.teams", "com.tinyspeck.slackmacgap", "com.apple.FaceTime",
+                  "com.apple.avconferenced", "net.whatsapp.WhatsApp", "com.webex", "com.cisco.webexmeetings",
+                  "com.hnc.Discord", "com.google.Chrome", "company.thebrowser.Browser", "com.brave.Browser",
+                  "com.apple.Safari", "com.apple.WebKit", "com.microsoft.edgemac"]
+
+[nudge.sounds]                    # macOS system sound name, a sound file path, or "none"
+arrival = "Tink"
+purpose_done = "Glass"
+off_task = "Sosumi"
+agent_working = "Pop"
+in_call = "none"                  # silent so call participants don't hear it

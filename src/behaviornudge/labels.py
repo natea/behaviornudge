@@ -66,6 +66,24 @@ class Label:
         return [d for d in ("mode", "purpose", "project", "alignment") if getattr(self, d) is None]
 
 
+DIMS = ("mode", "purpose", "project", "alignment")
+
+
+def overlay_user(rule: Label, *stored: Label | None) -> Label:
+    """User labels first, then the rule's labels: dimensions the user answered (review queue
+    or "Legit task" feedback) override rules; everything else keeps the rule's value."""
+    out = Label()
+    for lab in stored:
+        if not lab:
+            continue
+        for d in DIMS:
+            if lab.sources.get(d) == "user":
+                out.set(d, getattr(lab, d), "user")
+    for d in DIMS:
+        out.set(d, getattr(rule, d), rule.sources.get(d, "rule"), rule.confidence.get(d))
+    return out
+
+
 def rule_label(s: dict, channel_map: dict[str, str]) -> Label:
     """Intent-independent rule labels (mode, purpose, project) for a session row."""
     key, app = s["key"], s["app"]
@@ -151,9 +169,12 @@ class LabelStore:
     """Local SQLite store for cached labels, the review queue and user answers."""
 
     def __init__(self, path: Path):
+        import threading
         self.path = path
         path.parent.mkdir(parents=True, exist_ok=True)
-        self.con = sqlite3.connect(path)
+        # shared by the live engine's threads (helper events, Jev workers, main loop)
+        self._lock = threading.RLock()
+        self.con = sqlite3.connect(path, check_same_thread=False)
         self.con.executescript("""
         CREATE TABLE IF NOT EXISTS cache (ck TEXT PRIMARY KEY, label TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS review (
@@ -162,41 +183,54 @@ class LabelStore:
         """)
 
     def get(self, ck: str) -> Label | None:
-        row = self.con.execute("SELECT label FROM cache WHERE ck=?", (ck,)).fetchone()
-        return Label(**json.loads(row[0])) if row else None
+        with self._lock:
+            row = self.con.execute("SELECT label FROM cache WHERE ck=?", (ck,)).fetchone()
+            return Label(**json.loads(row[0])) if row else None
 
     def put(self, ck: str, lab: Label) -> None:
-        self.con.execute("INSERT OR REPLACE INTO cache VALUES (?,?)", (ck, json.dumps(asdict(lab))))
+        with self._lock:
+            self.con.execute("INSERT OR REPLACE INTO cache VALUES (?,?)", (ck, json.dumps(asdict(lab))))
 
     def enqueue(self, ck: str, s: dict, intent: Intent, reason: str, proposed: Label, kind: str = "queue") -> None:
-        self.con.execute(
-            "INSERT OR IGNORE INTO review (ck, key, title, intent, reason, proposed, kind) VALUES (?,?,?,?,?,?,?)",
-            (ck, s["key"], trim_title(s.get("title")), json.dumps(asdict(intent)), reason, json.dumps(asdict(proposed)), kind))
+        with self._lock:
+            self.con.execute(
+                "INSERT OR IGNORE INTO review (ck, key, title, intent, reason, proposed, kind) VALUES (?,?,?,?,?,?,?)",
+                (ck, s["key"], trim_title(s.get("title")), json.dumps(asdict(intent)), reason, json.dumps(asdict(proposed)), kind))
 
     def open_items(self, kind: str = "queue", limit: int = 50) -> list[dict]:
-        cur = self.con.execute("SELECT id, key, title, intent, reason, proposed FROM review WHERE status='open' AND kind=? ORDER BY id LIMIT ?", (kind, limit))
-        return [dict(zip(("id", "key", "title", "intent", "reason", "proposed"), r)) for r in cur]
+        with self._lock:
+            cur = self.con.execute("SELECT id, key, title, intent, reason, proposed FROM review WHERE status='open' AND kind=? ORDER BY id LIMIT ?", (kind, limit))
+            return [dict(zip(("id", "key", "title", "intent", "reason", "proposed"), r)) for r in cur]
 
     def answer(self, item_id: int, **dims) -> Label:
-        row = self.con.execute("SELECT ck, proposed FROM review WHERE id=?", (item_id,)).fetchone()
-        if not row:
-            raise KeyError(item_id)
-        ck, proposed = row
-        lab = Label(**json.loads(proposed))
-        for dim, val in dims.items():
-            if val is None:
-                continue
-            setattr(lab, dim, val)
-            lab.sources[dim] = "user"
-            lab.confidence.pop(dim, None)
-        self.put(ck, lab)
-        self.con.execute("UPDATE review SET status='answered' WHERE id=?", (item_id,))
-        self.con.commit()
-        return lab
+        with self._lock:
+            row = self.con.execute("SELECT ck, proposed FROM review WHERE id=?", (item_id,)).fetchone()
+            if not row:
+                raise KeyError(item_id)
+            ck, proposed = row
+            lab = Label(**json.loads(proposed))
+            for dim, val in dims.items():
+                if val is None:
+                    continue
+                setattr(lab, dim, val)
+                lab.sources[dim] = "user"
+                lab.confidence.pop(dim, None)
+            self.put(ck, lab)
+            self.con.execute("UPDATE review SET status='answered' WHERE id=?", (item_id,))
+            self.con.commit()
+            return lab
+
+    def delete(self, ck: str) -> bool:
+        with self._lock:
+            n = self.con.execute("DELETE FROM cache WHERE ck=?", (ck,)).rowcount
+            self.con.commit()
+            return n > 0
 
     def commit(self):
-        self.con.commit()
+        with self._lock:
+            self.con.commit()
 
     def close(self):
-        self.con.commit()
-        self.con.close()
+        with self._lock:
+            self.con.commit()
+            self.con.close()

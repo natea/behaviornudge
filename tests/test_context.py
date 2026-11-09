@@ -112,3 +112,17 @@ def test_sunsama_token_storage_and_parse(tmp_path):
     assert stat.S_IMODE(os.stat(tmp_path / "tok.json").st_mode) == 0o600
     res = SimpleNamespace(contents=[SimpleNamespace(text='{"hasActiveTimer":true,"activeTimer":{"taskId":"t"}}')])
     assert parse_timer(res)["activeTimer"]["taskId"] == "t"
+
+
+def test_sunsama_tokens_expiry_recomputed_on_load(tmp_path):
+    import asyncio, json, time
+    from mcp.shared.auth import OAuthToken
+    from behaviornudge.sunsama_mcp import FileTokenStorage
+    st = FileTokenStorage(tmp_path / "tok.json")
+    asyncio.run(st.set_tokens(OAuthToken(access_token="a", token_type="Bearer", refresh_token="r", expires_in=600)))
+    saved = json.loads((tmp_path / "tok.json").read_text())["tokens"]
+    assert abs(saved["expires_at"] - (time.time() + 600)) < 5
+    saved["expires_at"] = time.time() - 60  # pretend it expired a minute ago
+    (tmp_path / "tok.json").write_text(json.dumps({"tokens": saved}))
+    loaded = asyncio.run(st.get_tokens())
+    assert loaded.expires_in == 0 and loaded.refresh_token == "r"  # SDK will refresh, not re-login

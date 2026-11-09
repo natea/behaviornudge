@@ -8,7 +8,7 @@ behaviornudge reads the screen activity your Mac already records. It finds the m
 
 Built at [Sundai Hack 148 – Behavioral Models: Predict the next action](https://www.sundai.club/events/boston/agi-house-sf-mit-hack-energy), a [Sundai Club](https://www.sundai.club) hackathon at MIT on November 8, 2026. The event was centered on [Unbox AI's BehaviorGPT](https://github.com/Unbox-AI/behaviorgpt), a large behavioral model that predicts what someone will do next.
 
-> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. In the first run on real data, BehaviorGPT won 17 of 28 test weeks, but both signals are weak (ROC-AUC 0.565 vs 0.513). Live nudges come in a later change. See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
+> **Status:** the offline backtest is complete. It builds a labeled timeline from local data, detects drift episodes, and compares BehaviorGPT with a baseline built from your own history. In the first run on real data, BehaviorGPT won 17 of 28 test weeks, but both signals are weak (ROC-AUC 0.565 vs 0.513). Live nudges are now available (see below). See [`openspec/changes/drift-prediction-backtest/tasks.md`](openspec/changes/drift-prediction-backtest/tasks.md) for progress.
 
 For the interactive architecture diagram, download [`docs/architecture.html`](docs/architecture.html) and open it in a browser.
 
@@ -32,6 +32,49 @@ For the interactive architecture diagram, download [`docs/architecture.html`](do
 3. **Labels.** Tag each session with **mode** (creative / reactive / consuming), **purpose** (lookup / reply / follow-link / browse), **project**, and **alignment** with intent. Labels come from layers: rules first, then a cache, then [TypeSafe Jev](https://docs.typesafe.ai/) for the ambiguous rest. Anything still unclear goes to a review queue for you.
 4. **Drift episodes.** An episode starts with a purposeful visit to a drift-prone site. It counts as *drift* when at least 3 minutes of off-task consuming follow within 15 minutes, before you return to work for at least 60 seconds. Triggers such as a meeting ending or an agent working are recorded alongside.
 5. **Prediction.** Every predictor implements one interface: given the history before time *t*, the intent, and the site you just arrived on, return the probability of drift. A rolling weekly evaluation (no look-ahead) compares BehaviorGPT against a local baseline built from your own history, within a budget of at most 5 nudges per working day.
+
+## Live nudges
+
+`behaviornudge nudge run` watches what you're doing and sends a macOS notification when you start drifting, naming the task you meant to be doing (your Sunsama timer or timebox, a calendar block, your call, or the project an agent is working on).
+
+| Nudge | Fires when (defaults) | Sound |
+|---|---|---|
+| Arrival | 20 s on a drift-prone site for a reason (reply, lookup, link) while your task is something else | Tink |
+| Feed landing | 45 s straight onto a LinkedIn / X / Instagram feed while you have a task at hand | Tink |
+| Purpose done | 30 s of off-task consuming right after that purposeful visit | Glass |
+| Off-task | 8 min of off-task consuming while you have a task at hand | Sosumi |
+| In a call | 30 s of consuming while a call app is using your microphone | none (silent) |
+| Agent working | 2 min of consuming while a herdr agent is working | Pop |
+
+Each notification has four buttons:
+- **Back to task:** a nudge that helped.
+- **Too soon:** that kind of nudge waits 1.5× longer next time, in the same context.
+- **Legit task:** this activity counts as on-task for this task from now on, both live and in backtests.
+- **Snooze 30 min:** pauses all nudges for half an hour.
+
+```sh
+uv run behaviornudge helper build            # builds the small native helper app (done automatically too)
+uv run behaviornudge nudge test off-task     # shows a sample nudge and prints the button you click
+uv run behaviornudge nudge run               # the engine (Ctrl-C to stop)
+uv run behaviornudge nudge status            # running?, notifications allowed?, budget, task at hand, current activity
+uv run behaviornudge nudge off | on | snooze 45
+uv run behaviornudge nudge feedback list     # waits adjusted by "Too soon", legit-task suppressions
+uv run behaviornudge nudge feedback reset s3 # undo one (a<N> = adjusted wait, s<N> = suppression)
+uv run behaviornudge nudge stats --days 7    # nudges, actions, return-to-work within 5 min, shadow predictor ROC-AUC
+```
+
+**Settings:** all timings, the daily budget (8), cooldowns, quiet hours, sounds (a macOS sound name, a sound file, or `none`) and the call-app list are in the `[nudge]` section of `behaviornudge.toml`.
+
+**Notifications:** the first nudge asks macOS for permission for "behaviornudge". In System Settings → Notifications → behaviornudge:
+- set **Alert Style → Persistent** so nudges stay on screen with their buttons (Temporary banners vanish after a few seconds);
+- turn **Summarize notifications** off so nudges aren't batched or reworded.
+
+**Focus modes:** a Focus such as Work silences behaviornudge unless it's on that Focus's allowed list, and nudges then land quietly in Notification Center.
+
+**Privacy:**
+- **Call detection only checks which call apps are using the microphone. It never records or listens.** The technique comes from [jhammant/maccap](https://github.com/jhammant/maccap) (MIT).
+- Notifications are local.
+- BehaviorGPT scores each nudge moment in shadow mode through the same allowlisted, audited egress gate; the score is logged and never decides anything.
 
 ## Privacy
 
@@ -111,11 +154,14 @@ uv run pytest
 | `src/behaviornudge/jev.py` | TypeSafe Jev labeling (question wording, probability routing) |
 | `src/behaviornudge/evaluate.py`, `report.py` | rolling evaluation, metrics, decision, report |
 | `src/behaviornudge/context.py`, `sunsama_mcp.py` | live herdr logger; Sunsama timer via Sunsama's MCP server |
+| `src/behaviornudge/nudge/` | live nudge engine: tracker, rules, delivery, feedback, shadow scoring |
+| `helper/BehaviorNudgeHelper.swift` | native helper: notifications with buttons, front app, call detection, idle |
 | `src/behaviornudge/egress.py` | the outbound allowlist and audit log |
 
 This project is planned with [OpenSpec](https://github.com/Fission-AI/OpenSpec). The proposal, design, specs and tasks live in [`openspec/changes/`](openspec/changes/):
 
 - `drift-prediction-backtest`: the offline backtest (all 37 tasks done)
+- `live-nudge-engine`: live Mac notifications with feedback (in progress)
 - `easytpp-drift-predictor`: a neural temporal-point-process predictor via [EasyTPP](https://github.com/ant-research/EasyTemporalPointProcess) (proposed)
 
 ## License

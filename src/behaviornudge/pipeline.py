@@ -75,18 +75,21 @@ def label_all(cfg: Config, classifier: Classifier | None = None, limit_classifie
     queued = 0
     prev = None
     act_fp = jev_fingerprint(cfg)
-    for s, lab in zip(sessions, rules):
+    from .jev import activity_cache_key
+    from .labels import overlay_user
+    for s, rule_lab in zip(sessions, rules):
         intent = resolver.resolve(parse_utc(s["start_utc"]))
+        ck = cache_key(s, intent, defs)
+        act = store.get(activity_cache_key(s["key"], s.get("title"), act_fp)) if act_fp else None
+        # layer 1: the user's own labels (review answers, "Legit task" feedback) override rules
+        lab = overlay_user(rule_lab, store.get(ck), act)
         if act_fp and any(getattr(lab, d) is None for d in ("mode", "purpose", "project")):
-            from .jev import activity_cache_key
-            act = store.get(activity_cache_key(s["key"], s.get("title"), act_fp))
             if act:
                 for d in ("mode", "purpose", "project"):
                     src = act.sources.get(d, "model")
                     lab.set(d, getattr(act, d), "user" if src == "user" else "model", act.confidence.get(d))
                 lab.model, lab.prompt_fp = act.model, act.prompt_fp
         lab.set("alignment", rule_alignment(s, lab, intent), "rule")  # decided in code from the judgments
-        ck = cache_key(s, intent, defs)
         if lab.missing():
             cached = store.get(ck)
             if cached:

@@ -39,13 +39,25 @@ class FileTokenStorage:
         os.chmod(self.path, 0o600)
 
     async def get_tokens(self):
+        """Stored tokens, with `expires_in` recomputed from the saved absolute expiry so an
+        expired access token is refreshed (with the refresh token) instead of re-authorized."""
+        import time
         from mcp.shared.auth import OAuthToken
-        d = self._load().get("tokens")
-        return OAuthToken(**d) if d else None
+        d = dict(self._load().get("tokens") or {})
+        if not d:
+            return None
+        expires_at = d.pop("expires_at", None)
+        if expires_at is not None:
+            d["expires_in"] = max(0, int(expires_at - time.time()))
+        return OAuthToken(**d)
 
     async def set_tokens(self, tokens) -> None:
+        import time
         d = self._load()
-        d["tokens"] = tokens.model_dump(mode="json", exclude_none=True)
+        t = tokens.model_dump(mode="json", exclude_none=True)
+        if t.get("expires_in") is not None:
+            t["expires_at"] = time.time() + int(t["expires_in"])
+        d["tokens"] = t
         self._save(d)
 
     async def get_client_info(self):
@@ -111,7 +123,35 @@ def _provider(storage: FileTokenStorage, interactive: bool):
     meta = OAuthClientMetadata(client_name="behaviornudge (read-only timer)", redirect_uris=[REDIRECT_URI],
                                grant_types=["authorization_code", "refresh_token"], response_types=["code"],
                                token_endpoint_auth_method="none")
-    return OAuthClientProvider(SERVER_URL, meta, storage, redirect_handler, callback_handler)
+
+    class Provider(OAuthClientProvider):
+        async def _initialize(self) -> None:
+            # The SDK doesn't derive the expiry of tokens loaded from storage, so an expired access
+            # token would trigger a full browser login on 401 instead of a refresh. Set it here.
+            await super()._initialize()
+            if self.context.current_tokens is not None:
+                self.context.update_token_expiry(self.context.current_tokens)
+            # Refresh needs the real token endpoint; in a fresh process the SDK only discovers it
+            # after a 401 and otherwise guesses `/token` (404 on Sunsama). Load the metadata up front.
+            if self.context.oauth_metadata is None:
+                self.context.oauth_metadata = _auth_server_metadata()
+
+    return Provider(SERVER_URL, meta, storage, redirect_handler, callback_handler)
+
+
+AUTH_SERVER = "https://api.sunsama.com"
+
+
+def _auth_server_metadata():
+    """Sunsama's OAuth authorization-server metadata (RFC 8414), or None if unreachable."""
+    import httpx
+    from mcp.shared.auth import OAuthMetadata
+    try:
+        r = httpx.get(f"{AUTH_SERVER}/.well-known/oauth-authorization-server", timeout=10)
+        r.raise_for_status()
+        return OAuthMetadata.model_validate(r.json())
+    except Exception:
+        return None
 
 
 def parse_timer(result) -> dict:
@@ -121,6 +161,24 @@ def parse_timer(result) -> dict:
         if text:
             return json.loads(text)
     raise RuntimeError("Sunsama returned no timer content")
+
+
+async def read_json_resource(storage: FileTokenStorage, uri: str, interactive: bool = False) -> dict:
+    """Read any Sunsama MCP resource that returns JSON text (read-only)."""
+    from mcp import ClientSession
+    from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
+
+    if not interactive and not storage.has_tokens():
+        raise LoginRequired("Sunsama login required: run `uv run behaviornudge sunsama-timer --login` once")
+    http = create_mcp_http_client(auth=_provider(storage, interactive))
+    async with streamable_http_client(SERVER_URL, http_client=http) as streams:
+        async with ClientSession(streams[0], streams[1]) as session:
+            await session.initialize()
+            return parse_timer(await session.read_resource(uri))
+
+
+def fetch_resource(token_path: Path, uri: str) -> dict:
+    return asyncio.run(read_json_resource(FileTokenStorage(token_path), uri))
 
 
 async def read_active_timer(storage: FileTokenStorage, interactive: bool = False) -> dict:
