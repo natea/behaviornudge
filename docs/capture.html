@@ -11,10 +11,10 @@
 .pair { display: grid; gap: 20px; }
 @media (min-width: 860px) { .pair { grid-template-columns: 1fr 1fr; } }
 .src { padding: 24px; display: flex; flex-direction: column; gap: 14px; }
-.src .tag { align-self: flex-start; font: 600 12px/1 var(--sans); padding: 5px 9px; border-radius: 6px; }
+.src .tag { align-self: flex-start; font: 600 12px/1 var(--sans); padding: 6px 10px; border-radius: 6px; }
 .tag.then { background: var(--line-2); color: var(--ink-2); }
 .tag.now { background: var(--flow-soft); color: var(--flow); }
-.src h3 { margin: 0; }
+.src .card-title { margin: 0; font: 650 22px/1.25 var(--sans); letter-spacing: 0; }
 .src p { margin: 0; color: var(--ink-2); }
 .src dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; font-size: 15px; }
 .src dt { color: var(--ink-3); }
@@ -33,7 +33,7 @@ tr:last-child > * { border-bottom: 0; }
 .lane { display: grid; grid-template-columns: 9.5rem 1fr; gap: 12px; align-items: center; font-size: 14px; }
 .lane .lbl { color: var(--ink-2); }
 .track { position: relative; height: 26px; border-radius: 6px; background: var(--line-2); }
-.bar { position: absolute; top: 0; bottom: 0; border-radius: 6px; font: 600 11.5px/26px var(--sans); color: #fff; padding: 0 8px; white-space: nowrap; overflow: hidden; }
+.bar { position: absolute; top: 0; bottom: 0; border-radius: 6px; font: 600 11.5px/26px var(--sans); color: #fff; padding: 0 10px; white-space: nowrap; overflow: hidden; }
 .b1 { background: var(--flow); } .b2 { background: var(--reactive); } .b3 { background: var(--consuming); }
 .dot { position: absolute; top: 7px; width: 12px; height: 12px; border-radius: 50%; background: var(--consuming); }
 .lane.result .track { background: transparent; border: 1px dashed var(--line); }
@@ -75,7 +75,7 @@ pre.sh .c { color: var(--tok-com); }
     <div class="pair">
       <article class="card src">
         <span class="tag then">Where it started</span>
-        <h3>Retrace.to</h3>
+        <h2 class="card-title">Retrace.to</h2>
         <p>A Rewind-style screen recorder for the Mac (<a href="https://retrace.to">retrace.to</a>, by haseab). It was the first source behaviornudge read. Its big advantage is exact durations: it stores every stretch of time spent in one app or window.</p>
         <dl>
           <dt>Reads</dt><dd>the <code>segment</code> table: app, exact start and end, window title, browser URL</dd>
@@ -86,7 +86,7 @@ pre.sh .c { color: var(--tok-com); }
       </article>
       <article class="card src">
         <span class="tag now">What it uses now</span>
-        <h3>Retrace by jhammant</h3>
+        <h2 class="card-title">Retrace by jhammant</h2>
         <p>A private, on-device “rewind” for Mac and Windows (<a href="https://github.com/jhammant/retrace">github.com/jhammant/retrace</a>, Apache-2.0). It captures the screen live, pulls out the text, writes a one-line caption with Apple's on-device model, and deletes the raw screenshot. It also imports Screen Time, browser history and your calendar.</p>
         <dl>
           <dt>Reads</dt><dd>captures (time, app, window title, URL, caption), Screen Time durations, Chrome and Safari visits, and calendar events through its <code>retrace-calendar</code> helper</dd>

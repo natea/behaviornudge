@@ -15,6 +15,7 @@
 .row:first-child { border-top: 0; padding-top: 0; }
 @media (min-width: 900px) { .row { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } .note-col { position: sticky; top: 16px; align-self: start; } }
 .row > * { min-width: 0; }
+.row-title { font: 650 22px/1.25 var(--sans); letter-spacing: 0; margin: 0 0 8px; }
 .sec { font: 600 13px/1 var(--mono); color: var(--tok-sec); margin: 0 0 10px; }
 .note-col p { margin: 0; color: var(--ink-2); }
 .note-col p.sec { color: var(--tok-sec); }
@@ -58,12 +59,12 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <section>
   <div class="wrap">
       <article class="row" id="basics">
-        <div class="note-col"><p class="sec">top level</p><h3>Basics</h3><p>Your timezone (used for quiet hours, daily budgets and the weekly evaluation) and where local data lives. API keys never go in this file: they stay in your environment or a git-ignored <code>.env</code>.</p></div>
+        <div class="note-col"><p class="sec">top level</p><h2 class="row-title">Basics</h2><p>Your timezone (used for quiet hours, daily budgets and the weekly evaluation) and where local data lives. API keys never go in this file: they stay in your environment or a git-ignored <code>.env</code>.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="k">timezone</span> = <span class="s">&quot;America/New_York&quot;</span>
 <span class="k">data_dir</span> = <span class="s">&quot;data&quot;</span></code></pre></div>
       </article>
       <article class="row" id="sources">
-        <div class="note-col"><p class="sec">[sources]</p><h3>Where activity comes from</h3><p>Paths to the local databases behaviornudge reads, always read-only. Both Retraces are optional; use either or both. <code>retrace_repo</code> and <code>retrace_api</code> are for the launchd agent that keeps Retrace running. <code>sunsama_timer = "mcp"</code> reads your running Sunsama timer through Sunsama's official MCP server. <a href="capture.html">More on the capture sources →</a></p></div>
+        <div class="note-col"><p class="sec">[sources]</p><h2 class="row-title">Where activity comes from</h2><p>Paths to the local databases behaviornudge reads, always read-only. Both Retraces are optional; use either or both. <code>retrace_repo</code> and <code>retrace_api</code> are for the launchd agent that keeps Retrace running. <code>sunsama_timer = "mcp"</code> reads your running Sunsama timer through Sunsama's official MCP server. <a href="capture.html">More on the capture sources →</a></p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[sources]</span>
 <span class="k">retrace_jhammant_db</span> = <span class="s">&quot;~/.retrace/retrace.db&quot;</span>
 <span class="k">retrace_to_db</span> = <span class="s">&quot;~/Library/Application Support/Retrace/retrace.db&quot;</span>
@@ -75,20 +76,20 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">sunsama_timer</span> = <span class="s">&quot;mcp&quot;</span>     <span class="c"># live timer via https://api.sunsama.com/mcp; run `behaviornudge sunsama-timer --login` once</span></code></pre></div>
       </article>
       <article class="row" id="sessions">
-        <div class="note-col"><p class="sec">[sessions]</p><h3>How records become sessions</h3><p>Records of the same activity less than 30 s apart merge into one session. Anything shorter than 3 s is treated as passing through, not as doing something.</p></div>
+        <div class="note-col"><p class="sec">[sessions]</p><h2 class="row-title">How records become sessions</h2><p>Records of the same activity less than 30 s apart merge into one session. Anything shorter than 3 s is treated as passing through, not as doing something.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[sessions]</span>
 <span class="k">merge_gap_s</span> = <span class="n">30</span>        <span class="c"># same-key records closer than this merge into one session</span>
 <span class="k">transition_max_s</span> = <span class="n">3</span>    <span class="c"># shorter activity is a transition, not a session</span></code></pre></div>
       </article>
       <article class="row" id="intent">
-        <div class="note-col"><p class="sec">[intent]</p><h3>What you were supposed to be doing</h3><p>Intent comes from your Sunsama timer, then a Sunsama timebox, then a calendar event, then your most recent creative work. Timers you forget to stop are capped at 45 min. Only the calendars you list here are read.</p></div>
+        <div class="note-col"><p class="sec">[intent]</p><h2 class="row-title">What you were supposed to be doing</h2><p>Intent comes from your Sunsama timer, then a Sunsama timebox, then a calendar event, then your most recent creative work. Timers you forget to stop are capped at 45 min. Only the calendars you list here are read.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[intent]</span>
 <span class="k">recent_creative_window_min</span> = <span class="n">30</span>
 <span class="k">timer_cap_min</span> = <span class="n">45</span>                       <span class="c"># forgotten-timer cap</span>
 <span class="k">calendar_allowlist</span> = [<span class="s">&quot;Your Name (your-calendar)&quot;</span>]   <span class="c"># exact calendar names as Apple Calendar shows them</span></code></pre></div>
       </article>
       <article class="row" id="drift">
-        <div class="note-col"><p class="sec">[drift]</p><h3>What counts as drift</h3><p>A drift episode starts with a purposeful visit to one of these sites. It counts as drift when at least 3 min of off-task scrolling follow within 15 min, before you get back to work for at least 60 s. These settings drive the backtest.</p></div>
+        <div class="note-col"><p class="sec">[drift]</p><h2 class="row-title">What counts as drift</h2><p>A drift episode starts with a purposeful visit to one of these sites. It counts as drift when at least 3 min of off-task scrolling follow within 15 min, before you get back to work for at least 60 s. These settings drive the backtest.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[drift]</span>
 <span class="k">prone_sites</span> = [<span class="s">&quot;linkedin.com&quot;</span>, <span class="s">&quot;x.com&quot;</span>, <span class="s">&quot;instagram.com&quot;</span>]
 <span class="k">window_min</span> = <span class="n">15</span>
@@ -97,7 +98,7 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">nudge_budget_per_day</span> = <span class="n">5</span></code></pre></div>
       </article>
       <article class="row" id="labeling">
-        <div class="note-col"><p class="sec">[labeling]</p><h3>Creative, reactive or consuming</h3><p>Rules label most activity. TypeSafe Jev labels the unclear rest, pinned to one model version so backtests are repeatable. Answers with a probability of at least 0.9 are accepted; ones below 0.5 go to your review queue. <code>channel_only = true</code> means task titles are never sent, only their channel.</p></div>
+        <div class="note-col"><p class="sec">[labeling]</p><h2 class="row-title">Creative, reactive or consuming</h2><p>Rules label most activity. TypeSafe Jev labels the unclear rest, pinned to one model version so backtests are repeatable. Answers with a probability of at least 0.9 are accepted; ones below 0.5 go to your review queue. <code>channel_only = true</code> means task titles are never sent, only their channel.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[labeling]</span>
 <span class="k">classifier_model</span> = <span class="s">&quot;jev-1.14.0&quot;</span>          <span class="c"># pinned; never an alias for a backtest</span>
 <span class="k">accept_probability</span> = <span class="n">0.9</span>                 <span class="c"># probability of the chosen mode (not `confidence`)</span>
@@ -106,20 +107,20 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">channel_only</span> = <span class="n">false</span>                     <span class="c"># true = never send task titles, only channels</span></code></pre></div>
       </article>
       <article class="row" id="labeling-modes">
-        <div class="note-col"><p class="sec">[labeling.modes]</p><h3>Define the modes in your own words</h3><p>These definitions are what Jev reads when it decides. Change them, and the labels follow.</p></div>
+        <div class="note-col"><p class="sec">[labeling.modes]</p><h2 class="row-title">Define the modes in your own words</h2><p>These definitions are what Jev reads when it decides. Change them, and the labels follow.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[labeling.modes]</span>
 <span class="k">creative</span> = <span class="s">&quot;Writing, building, or making something: coding, drafting, designing, composing.&quot;</span>
 <span class="k">reactive</span> = <span class="s">&quot;Replying, communicating, or looking something up for a specific reason: messages, email, a profile lookup.&quot;</span>
 <span class="k">consuming</span> = <span class="s">&quot;Scrolling feeds and browsing for novelty or shiny objects, without a specific goal.&quot;</span></code></pre></div>
       </article>
       <article class="row" id="projects">
-        <div class="note-col"><p class="sec">[projects]</p><h3>Repos to Sunsama channels</h3><p>Maps a code repository's name to the Sunsama channel it belongs to, so work in a repo matches the task you planned.</p></div>
+        <div class="note-col"><p class="sec">[projects]</p><h2 class="row-title">Repos to Sunsama channels</h2><p>Maps a code repository's name to the Sunsama channel it belongs to, so work in a repo matches the task you planned.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[projects]</span>
 <span class="c"># repository name -&gt; Sunsama channel (unmapped repos resolve to their repo name)</span>
 <span class="k">&quot;my-repo&quot;</span> = <span class="s">&quot;My Project&quot;</span></code></pre></div>
       </article>
       <article class="row" id="predictors">
-        <div class="note-col"><p class="sec">[predictors]</p><h3>Which models predict drift</h3><p>Every predictor implements one interface, so you can switch them on and off here. BehaviorGPT gets your last 50 sessions and returns its top 20 likely next activities.</p></div>
+        <div class="note-col"><p class="sec">[predictors]</p><h2 class="row-title">Which models predict drift</h2><p>Every predictor implements one interface, so you can switch them on and off here. BehaviorGPT gets your last 50 sessions and returns its top 20 likely next activities.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[predictors]</span>
 <span class="k">enabled</span> = [<span class="s">&quot;baseline&quot;</span>, <span class="s">&quot;behaviorgpt&quot;</span>]
 <span class="k">behaviorgpt_market</span> = <span class="s">&quot;us&quot;</span>
@@ -128,7 +129,7 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
 <span class="k">behaviorgpt_order_min</span> = <span class="n">10</span></code></pre></div>
       </article>
       <article class="row" id="nudge">
-        <div class="note-col"><p class="sec">[nudge]</p><h3>When nudges fire</h3><p>Every timing, the daily budget, cooldowns, snooze length and quiet hours. <code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). <code>call_allowlist</code> lists the apps whose microphone use counts as being in a call.</p></div>
+        <div class="note-col"><p class="sec">[nudge]</p><h2 class="row-title">When nudges fire</h2><p>Every timing, the daily budget, cooldowns, snooze length and quiet hours. <code>too_soon_factor</code> is how much longer a nudge waits after you click <em>Too soon</em> (up to 4×). <code>call_allowlist</code> lists the apps whose microphone use counts as being in a call.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[nudge]</span>
 <span class="k">enabled</span> = <span class="n">true</span>
 <span class="k">daily_budget</span> = <span class="n">8</span>
@@ -152,7 +153,7 @@ td:nth-child(3) { color: var(--consuming); font-weight: 600; }
                   <span class="s">&quot;com.apple.Safari&quot;</span>, <span class="s">&quot;com.apple.WebKit&quot;</span>, <span class="s">&quot;com.microsoft.edgemac&quot;</span>]</code></pre></div>
       </article>
       <article class="row" id="nudge-sounds">
-        <div class="note-col"><p class="sec">[nudge.sounds]</p><h3>A sound for each nudge</h3><p>Any macOS system sound name, the path to a sound file, or <code>"none"</code>. The in-call nudge is silent so nobody on the call hears it.</p></div>
+        <div class="note-col"><p class="sec">[nudge.sounds]</p><h2 class="row-title">A sound for each nudge</h2><p>Any macOS system sound name, the path to a sound file, or <code>"none"</code>. The in-call nudge is silent so nobody on the call hears it.</p></div>
         <div class="code-col"><pre class="toml"><code><span class="h">[nudge.sounds]</span>                    <span class="c"># macOS system sound name, a sound file path, or &quot;none&quot;</span>
 <span class="k">arrival</span> = <span class="s">&quot;Tink&quot;</span>
 <span class="k">purpose_done</span> = <span class="s">&quot;Glass&quot;</span>

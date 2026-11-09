@@ -116,7 +116,7 @@ def build() -> str:
         anchor = name.replace(".", "-") or "basics"
         label = f"[{name}]" if name else "top level"
         rows.append(f'''      <article class="row" id="{anchor}">
-        <div class="note-col"><p class="sec">{html.escape(label)}</p><h3>{title}</h3><p>{note}</p></div>
+        <div class="note-col"><p class="sec">{html.escape(label)}</p><h2 class="row-title">{title}</h2><p>{note}</p></div>
         <div class="code-col">{block(body)}</div>
       </article>''')
     demo_lines = ["[nudge]"] + [f"{k} = {new}" for k, _, new in DEMO]
@@ -141,6 +141,7 @@ PAGE = """<!doctype html>
 .row:first-child {{ border-top: 0; padding-top: 0; }}
 @media (min-width: 900px) {{ .row {{ grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }} .note-col {{ position: sticky; top: 16px; align-self: start; }} }}
 .row > * {{ min-width: 0; }}
+.row-title {{ font: 650 22px/1.25 var(--sans); letter-spacing: 0; margin: 0 0 8px; }}
 .sec {{ font: 600 13px/1 var(--mono); color: var(--tok-sec); margin: 0 0 10px; }}
 .note-col p {{ margin: 0; color: var(--ink-2); }}
 .note-col p.sec {{ color: var(--tok-sec); }}
