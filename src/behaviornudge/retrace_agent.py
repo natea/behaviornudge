@@ -178,8 +178,9 @@ def _snoozed(v: Any, now: datetime) -> bool:
 class System:
     """Thin wrapper over launchctl, HTTP, files and processes."""
 
-    def __init__(self, cfg: AgentConfig):
+    def __init__(self, cfg: AgentConfig, label: str = LABEL):
         self.cfg = cfg
+        self.label = label
         self.uid = os.getuid()
 
     @property
@@ -191,7 +192,7 @@ class System:
 
     def agent_pid(self) -> int | None:
         """PID of the agent's running job, or None if not loaded/running. Raises nothing."""
-        r = self.launchctl("print", f"{self.domain}/{LABEL}")
+        r = self.launchctl("print", f"{self.domain}/{self.label}")
         if r.returncode != 0:
             return None
         for line in r.stdout.splitlines():

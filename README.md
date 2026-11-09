@@ -45,6 +45,7 @@ Project page: **[natea.github.io/behaviornudge](https://natea.github.io/behavior
 | Off-task | 8 min of off-task consuming while you have a task at hand | Sosumi |
 | In a call | 30 s of consuming while a call app is using your microphone | none (silent) |
 | Agent working | 2 min of consuming while a herdr agent is working | Pop |
+| Messaging | During a task: 4+ different conversations in one stretch of Slack, Discord, WhatsApp, Signal, Messages or Telegram (after 60 s), or 5 min in them. A quick reply, or a task that's about messaging, stays quiet | Purr |
 
 Each notification has four buttons:
 - **Back to task:** a nudge that helped.
@@ -55,7 +56,8 @@ Each notification has four buttons:
 ```sh
 uv run behaviornudge helper build            # builds the small native helper app (done automatically too)
 uv run behaviornudge nudge test off-task     # shows a sample nudge and prints the button you click
-uv run behaviornudge nudge run               # the engine (Ctrl-C to stop)
+uv run behaviornudge nudge agent install     # run the engine under launchd: starts at login, restarts on exit
+uv run behaviornudge nudge run               # or run it in a terminal (Ctrl-C to stop)
 uv run behaviornudge nudge status            # running?, notifications allowed?, budget, task at hand, current activity
 uv run behaviornudge nudge off | on | snooze 45
 uv run behaviornudge nudge feedback list     # waits adjusted by "Too soon", legit-task suppressions
@@ -150,6 +152,20 @@ uv run behaviornudge retrace agent uninstall
 - **Install check:** `install` waits for a real new capture, not just a healthy API, and tells you if the grant is missing.
 - **Warnings:** `nudge status` and `retrace agent status` warn when the server is down, when captures are failing, or when the capture loop has stopped.
 - **Python upgrades:** if uv upgrades that Python, the binary's path changes and the grant has to be given again; status will warn you when that happens.
+
+### Keeping the nudge engine running
+
+The engine can run under launchd too, so nudges don't depend on a terminal window staying open.
+
+```sh
+uv run behaviornudge nudge agent install --replace   # --replace stops an engine running in a terminal
+uv run behaviornudge nudge agent status
+uv run behaviornudge nudge agent uninstall
+```
+
+- **Config:** the agent is `~/Library/LaunchAgents/com.behaviornudge.engine.plist`. It runs `.venv/bin/behaviornudge nudge run` from the repo (so `behaviornudge.toml` and `.env` are found) and logs to `data/engine.log`.
+- **Permissions:** it runs as the same uv Python as Retrace's agent, so Screen Recording and Accessibility carry over. The first time it reads a browser tab, macOS asks whether `python3.12` may control Google Chrome: click Allow.
+- **Notices:** under launchd the log is out of sight, so the engine tells you in a plain notification (no nudge buttons, at most hourly) when the Sunsama sign-in has expired, or when another copy of your browser, such as an automation browser, is answering tab reads instead of the window in front.
 
 ## Development
 

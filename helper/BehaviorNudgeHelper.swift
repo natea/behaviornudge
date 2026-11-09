@@ -168,7 +168,8 @@ final class Helper: NSObject, UNUserNotificationCenterDelegate {
             content.title = msg["title"] as? String ?? "behaviornudge"
             content.body = msg["body"] as? String ?? ""
             if let sub = msg["subtitle"] as? String { content.subtitle = sub }
-            content.categoryIdentifier = "nudge"
+            // "notice" = a plain heads-up from the engine (no nudge buttons, no feedback)
+            content.categoryIdentifier = (msg["type"] as? String) == "notice" ? "" : "nudge"
             content.sound = resolveSound(msg["sound"] as? String)
             content.interruptionLevel = .active  // time-sensitive needs an entitlement this ad-hoc build lacks
             let id = msg["id"].map { "\($0)" } ?? UUID().uuidString

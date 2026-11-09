@@ -8,6 +8,8 @@ and refreshed automatically. This module only ever *reads* `sunsama://active-tim
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import fcntl
 import json
 import os
 import threading
@@ -24,6 +26,22 @@ REDIRECT_URI = f"http://127.0.0.1:{CALLBACK_PORT}/callback"
 
 class LoginRequired(RuntimeError):
     """No cached Sunsama tokens; run `behaviornudge sunsama-timer --login` once."""
+
+
+def needs_login(exc: BaseException) -> bool:
+    """True if `exc` is, wraps or groups a LoginRequired (the MCP client raises from task groups)."""
+    seen: set[int] = set()
+    stack = [exc]
+    while stack:
+        e = stack.pop()
+        if e is None or id(e) in seen:
+            continue
+        seen.add(id(e))
+        if isinstance(e, LoginRequired):
+            return True
+        stack.extend(getattr(e, "exceptions", ()) or ())
+        stack.extend([e.__cause__, e.__context__])
+    return False
 
 
 class FileTokenStorage:
@@ -72,6 +90,23 @@ class FileTokenStorage:
 
     def has_tokens(self) -> bool:
         return bool(self._load().get("tokens"))
+
+    @contextlib.contextmanager
+    def locked(self):
+        """Hold an exclusive lock (across threads and processes) for one Sunsama call.
+
+        Access tokens last 10 minutes; a refresh token may only be used once. Each call builds a
+        new OAuth provider that loads tokens from disk on its first request, so holding this lock
+        for the whole call means a second caller reads the token the first one just renewed
+        instead of spending the old refresh token again (engine-reliability D4)."""
+        lock = self.path.with_suffix(".lock")
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        with open(lock, "a") as f:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
 
 
 class _Callback:
@@ -168,13 +203,14 @@ async def read_json_resource(storage: FileTokenStorage, uri: str, interactive: b
     from mcp import ClientSession
     from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
 
-    if not interactive and not storage.has_tokens():
-        raise LoginRequired("Sunsama login required: run `uv run behaviornudge sunsama-timer --login` once")
-    http = create_mcp_http_client(auth=_provider(storage, interactive))
-    async with streamable_http_client(SERVER_URL, http_client=http) as streams:
-        async with ClientSession(streams[0], streams[1]) as session:
-            await session.initialize()
-            return parse_timer(await session.read_resource(uri))
+    with storage.locked():
+        if not interactive and not storage.has_tokens():
+            raise LoginRequired("Sunsama login required: run `uv run behaviornudge sunsama-timer --login` once")
+        http = create_mcp_http_client(auth=_provider(storage, interactive))
+        async with streamable_http_client(SERVER_URL, http_client=http) as streams:
+            async with ClientSession(streams[0], streams[1]) as session:
+                await session.initialize()
+                return parse_timer(await session.read_resource(uri))
 
 
 def fetch_resource(token_path: Path, uri: str) -> dict:
@@ -182,17 +218,7 @@ def fetch_resource(token_path: Path, uri: str) -> dict:
 
 
 async def read_active_timer(storage: FileTokenStorage, interactive: bool = False) -> dict:
-    from mcp import ClientSession
-    from mcp.client.streamable_http import create_mcp_http_client, streamable_http_client
-
-    if not interactive and not storage.has_tokens():
-        raise LoginRequired("Sunsama login required: run `uv run behaviornudge sunsama-timer --login` once")
-    http = create_mcp_http_client(auth=_provider(storage, interactive))
-    async with streamable_http_client(SERVER_URL, http_client=http) as streams:
-        read, write = streams[0], streams[1]
-        async with ClientSession(read, write) as session:
-            await session.initialize()
-            return parse_timer(await session.read_resource(TIMER_URI))
+    return await read_json_resource(storage, TIMER_URI, interactive)
 
 
 def fetch(token_path: Path, interactive: bool = False) -> dict:

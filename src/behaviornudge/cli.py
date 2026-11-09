@@ -252,6 +252,9 @@ def cmd_nudge(args) -> None:
                                      running=running, intent=info.get("intent") if running else None,
                                      current=info.get("current") if running else None,
                                      recent=info.get("recent") if running else None)))
+        from . import engine_agent as ea
+        ecfg = ea.EngineAgentConfig.from_config(cfg.data_dir)
+        print(ea.agent_line(ecfg, ea.System(ecfg)))
         from . import retrace_agent as ra
         rcfg = ra.AgentConfig.from_sources(cfg.section("sources"))
         rsys = ra.System(rcfg)
@@ -301,6 +304,23 @@ def cmd_retrace_agent(args) -> None:
         else:
             print("\n".join(ra.status(cfg, sys_)))
     except ra.AgentError as e:
+        raise SystemExit(f"error: {e}") from None
+
+
+def cmd_nudge_agent(args) -> None:
+    from . import engine_agent as ea
+
+    cfg = ea.EngineAgentConfig.from_config(load_config(args.config).data_dir)
+    sys_ = ea.System(cfg)
+    try:
+        if args.action == "install":
+            if not ea.install(cfg, sys_, replace=args.replace):
+                raise SystemExit(1)
+        elif args.action == "uninstall":
+            ea.uninstall(cfg, sys_)
+        else:
+            print("\n".join(ea.status(cfg, sys_)))
+    except ea.AgentError as e:
         raise SystemExit(f"error: {e}") from None
 
 
@@ -367,11 +387,11 @@ def main(argv: list[str] | None = None) -> None:
     nd = sub.add_parser("nudge", help="live nudge engine")
     nds = nd.add_subparsers(dest="nsub", required=True)
     nt = nds.add_parser("test", help="show a sample nudge and print the button you click")
-    nt.add_argument("type", choices=["arrival", "purpose_done", "off_task", "in_call", "agent_working",
+    nt.add_argument("type", choices=["arrival", "purpose_done", "off_task", "in_call", "agent_working", "messaging",
                                      "purpose-done", "off-task", "in-call", "agent-working"])
     nt.add_argument("--wait", type=int, default=90)
     nt.set_defaults(func=cmd_nudge_test)
-    for name, help_ in [("run", "run the live nudge engine (foreground)"), ("status", "engine, permission, budget, snooze"),
+    for name, help_ in [("run", "run the live nudge engine (foreground; see `nudge agent`)"), ("status", "engine, permission, budget, snooze"),
                         ("on", "turn nudges on"), ("off", "turn nudges off")]:
         nds.add_parser(name, help=help_).set_defaults(func=cmd_nudge)
     sn = nds.add_parser("snooze", help="pause nudges for N minutes")
@@ -381,6 +401,10 @@ def main(argv: list[str] | None = None) -> None:
     fbp.add_argument("faction", choices=["list", "reset"])
     fbp.add_argument("id", nargs="?", help="a<N> (adjusted wait) or s<N> (legit suppression) from `feedback list`")
     fbp.set_defaults(func=cmd_nudge)
+    nag = nds.add_parser("agent", help="LaunchAgent that keeps the engine running (start at login, restart on exit)")
+    nag.add_argument("action", choices=["install", "uninstall", "status"])
+    nag.add_argument("--replace", action="store_true", help="stop an engine running in a terminal first")
+    nag.set_defaults(func=cmd_nudge_agent)
     stp = nds.add_parser("stats", help="live nudge statistics")
     stp.add_argument("--days", type=int, default=None)
     stp.set_defaults(func=cmd_nudge)

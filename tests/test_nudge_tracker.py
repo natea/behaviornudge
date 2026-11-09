@@ -19,6 +19,42 @@ def test_read_tab_with_fake_runner():
     assert read_tab(CHROME, lambda script: None) == (None, None)
 
 
+def _tab(url, title, front, window):
+    return lambda script: SEP.join([url, title, front, window])
+
+
+def test_read_tab_from_the_window_in_front():
+    run = _tab("https://www.linkedin.com/feed/", "Feed | LinkedIn", CHROME,
+               "Feed | LinkedIn - High memory usage - 1.3 GB - Google Chrome - Nate")
+    assert read_tab(CHROME, run) == ("https://www.linkedin.com/feed/", "Feed | LinkedIn")
+
+
+def test_read_tab_from_another_copy_of_the_browser_is_dropped():
+    seen = []
+    run = _tab("http://127.0.0.1:8811/behaviorgpt.html", "behaviornudge and BehaviorGPT", CHROME,
+               "Feed | LinkedIn - Google Chrome - Nate")
+    assert read_tab(CHROME, run, on_foreign=lambda t, w: seen.append((t, w))) == (None, None)
+    assert seen == [("behaviornudge and BehaviorGPT", "Feed | LinkedIn - Google Chrome - Nate")]
+
+
+def test_read_tab_unverifiable_is_used_as_before():
+    # front window title unknown (no Accessibility), or the browser isn't in front any more
+    assert read_tab(CHROME, _tab("https://x.com/home", "Home / X", CHROME, ""))[0] == "https://x.com/home"
+    assert read_tab(CHROME, _tab("https://x.com/home", "Home / X", "com.mitchellh.ghostty", "zsh"))[0] == "https://x.com/home"
+
+
+def test_long_titles_compare_by_prefix():
+    title = "A very long article title that Chrome shortens in its window title bar for sure"
+    run = _tab("https://example.com/a", title, CHROME, title[:50] + "… - Google Chrome - Nate")
+    assert read_tab(CHROME, run)[0] == "https://example.com/a"
+
+
+def test_safari_script_checks_front_window():
+    from behaviornudge.nudge.browser import script_for
+    sc = script_for("com.apple.Safari")
+    assert "front document" in sc and "System Events" in sc
+
+
 def test_tab_change_updates_key_immediately():
     tr = LiveTracker({})
     tr.on_front_app(CHROME, "Google Chrome", s(0))

@@ -28,6 +28,7 @@ from .browser import on_battery, poll_interval, read_tab
 from .calls import CallTracker
 from .feedback import FeedbackHandler, record_outcomes
 from .helper import HelperClient, app_paths, build_helper
+from .messaging import conversation_id, messaging_app, retrace_window
 from .live_intent import LiveIntent, retrace_calendar_source, sunsama_timebox_source
 from .rules import RuleEngine
 from .settings import load_settings
@@ -58,6 +59,7 @@ class NudgeEngine:
         self.proj2ch = proj2ch
         self.prone = cfg.section("drift")["prone_sites"]
         self.stop_event = threading.Event()
+        self._notices: dict[str, float] = {}  # notice kind -> monotonic time last shown
         self.intent = Intent("none")
         self.lock = threading.RLock()
 
@@ -78,7 +80,7 @@ class NudgeEngine:
         token = d / "sunsama_oauth.json"
         self.live_intent = LiveIntent(
             retrace_calendar_source(cfg.path("sources", "retrace_calendar_helper"), icfg.get("calendar_allowlist", [])),
-            sunsama_timebox_source(token) if token.exists() else None,
+            self._sunsama(sunsama_timebox_source(token)) if token.exists() else None,
             icfg.get("recent_creative_window_min", 30), icfg.get("timer_cap_min", 45), ch2proj, log=self.log)
         self.timer_source = None
         if cfg.section("sources").get("sunsama_timer") == "mcp" and token.exists():
@@ -88,7 +90,7 @@ class NudgeEngine:
                 payload = fetch(token)
                 self.live_intent.on_timer(payload)
                 return payload
-            self.timer_source = timer
+            self.timer_source = self._sunsama(timer)
 
         # tracker with live labels
         self.jev_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="jev")
@@ -100,6 +102,8 @@ class NudgeEngine:
         # calls, rules, feedback, shadow
         self.calls = CallTracker(self.st.call_end_grace_s, self._meeting_at, self.ctx.write)
         self.rules = RuleEngine(self.st, self.store, self.prone, cfg.timezone)
+        from ..retrace_agent import AgentConfig
+        self.retrace_status = AgentConfig.from_sources(cfg.section("sources")).status_path
         self.feedback = FeedbackHandler(self.store, self.st, self.labels, self.defs)
         self.shadow = ShadowScorer(self.store, *self._predictors(), log=self.log)
 
@@ -109,6 +113,36 @@ class NudgeEngine:
         self.helper = HelperClient([str(exe)], self._on_helper, log=self.log)
 
     # --- plumbing ----------------------------------------------------------------
+    NOTICE_EVERY_S = 3600
+
+    def notice(self, kind: str, title: str, body: str) -> bool:
+        """A plain heads-up notification (no nudge buttons, not a nudge), at most once an hour per kind."""
+        last = self._notices.get(kind)
+        if last is not None and time.monotonic() - last < self.NOTICE_EVERY_S:
+            return False
+        self._notices[kind] = time.monotonic()
+        self.log(f"notice [{kind}] {title} | {body}")
+        return self.helper.notify(f"notice-{kind}-{int(time.time())}", title, body, None, "notice")
+
+    def _sunsama(self, source):
+        """Wrap a Sunsama call so an expired sign-in shows one notice (engine-reliability D5)."""
+        from ..sunsama_mcp import needs_login
+
+        def call():
+            try:
+                return source()
+            except Exception as e:
+                if needs_login(e):
+                    self.notice("sunsama", "Sunsama sign-in expired",
+                                "Timers aren't being read. Run: uv run behaviornudge sunsama-timer --login")
+                raise
+        return call
+
+    def _foreign_tab(self, tab_title: str, window_title: str) -> None:
+        self.notice("browser", "Can't see your browser tab",
+                    "Another copy of the browser (an automation browser?) is answering instead of the window "
+                    "in front. Close it so drift nudges work.")
+
     def log(self, msg: str) -> None:
         line = f"[{datetime.now().strftime('%H:%M:%S')}] {msg}"
         if self._log_fn is print:
@@ -216,7 +250,7 @@ class NudgeEngine:
         elif kind == "front_app":
             self.tracker.on_front_app(ev.get("bundle_id", ""), ev.get("name", ""), now)
             if is_browser(ev.get("bundle_id"), ev.get("name")):
-                url, title = read_tab(ev.get("bundle_id", ""))
+                url, title = read_tab(ev.get("bundle_id", ""), on_foreign=self._foreign_tab)
                 self.tracker.on_tab(url, title, utcnow())
         elif kind == "calls":
             self.calls.on_calls(ev.get("active") or [], now)
@@ -244,7 +278,7 @@ class NudgeEngine:
                 battery, battery_checked = on_battery(), time.monotonic()
             bundle = self.tracker.front_bundle
             if bundle and is_browser(bundle, self.tracker.front_name):
-                url, title = read_tab(bundle)
+                url, title = read_tab(bundle, on_foreign=self._foreign_tab)
                 if (url, title) != (self.tracker.url, self.tracker.tab_title):
                     self.tracker.on_tab(url, title, utcnow())
             self.stop_event.wait(poll_interval(battery))
@@ -265,6 +299,7 @@ class NudgeEngine:
         if self.tracker.paused:
             return
         sessions = self.tracker.recent(now - timedelta(hours=2))
+        self._note_conversation(sessions, now)
         since, project = self._agent()
         d = self.rules.evaluate(now, sessions, intent, call=self.calls.state if self.calls.state.active else None,
                                 agent_working_since=since, agent_project=project)
@@ -276,7 +311,8 @@ class NudgeEngine:
         if d.fired:
             c = content.build(d.type, site=d.site, intent_title=d.intent.title, intent_source=d.intent.source,
                               stretch_s=d.stretch_s, call_name=d.call_name, agent_project=d.agent_project,
-                              feed=(d.type == "arrival" and d.stretch_s > 0))
+                              feed=(d.type == "arrival" and d.stretch_s > 0),
+                              app=d.site if d.type == "messaging" else None, hopping=d.hopping)
             in_call = self.calls.state.active
             sound = None if in_call else self.st.sound(d.type)  # never play a sound into a call
             sent = self.helper.notify(nid, c.title, c.body, sound, d.type)
@@ -285,6 +321,17 @@ class NudgeEngine:
             self.log(f"nudge moment {d.type} suppressed: {d.reason}")
         history = [s.row() for s in sessions if s.closed and s.end <= now][-50:]
         self.shadow.submit(nid, history, now, asdict(d.intent), d.key or "")
+
+    def _note_conversation(self, sessions, now: datetime) -> None:
+        """While messaging, tell the rules which conversation is open (tab title or Retrace's window title)."""
+        cur = sessions[-1] if sessions and not sessions[-1].closed else None
+        app = messaging_app(cur, self.st.messaging_apps) if cur and self.st.messaging_apps else None
+        if not app:
+            return
+        title = cur.title if cur.domain else retrace_window(self.retrace_status, app, now)
+        cid = conversation_id(title, app)
+        if cid:
+            self.rules.note_conversation(cid, now)
 
     def _write_status(self) -> None:
         with self.lock:
