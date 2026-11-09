@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>behaviornudge and BehaviorGPT</title>
+<meta name="description" content="How behaviornudge uses Unbox AI's BehaviorGPT: activities as a catalog, sessions as view and order events, a drift score from its ranked predictions, and how it did in a 28-week backtest.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232E5B86'/%3E%3Cpath d='M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="site.css">
+<style>
+.flow { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); counter-reset: f; }
+.flow .card { padding: 18px; counter-increment: f; position: relative; }
+.flow .card::before { content: counter(f); display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--flow-soft); color: var(--flow); font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.flow h3 { font-size: 19px; margin: 0 0 6px; }
+.flow p { margin: 0; color: var(--ink-2); font-size: 15px; }
+
+.map { display: grid; gap: 20px; }
+@media (min-width: 900px) { .map { grid-template-columns: 1fr 1fr; } }
+.map > * { min-width: 0; }
+.map .card { padding: 22px; }
+.map h3 { margin: 0 0 4px; }
+.map .what { margin: 0 0 14px; color: var(--ink-2); font-size: 15px; }
+.map dl { margin: 0 0 16px; display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; font-size: 15px; }
+.map dt { color: var(--ink-3); }
+.map dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+pre.json { margin: 0; background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font: 13px/1.6 var(--mono); color: var(--ink); }
+pre.json .k { color: var(--tok-key); } pre.json .s { color: var(--tok-str); } pre.json .n { color: var(--tok-num); } pre.json .c { color: var(--tok-com); font-style: italic; }
+
+.events { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 14px; }
+.ev { font: 600 12px/1 var(--sans); padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--card); white-space: nowrap; }
+.ev.view { border-color: var(--flow); color: var(--flow); }
+.ev.order { background: var(--flow); border-color: var(--flow); color: var(--paper); }
+.ev.gap { border-style: dashed; color: var(--ink-3); }
+.ev.now { border-color: var(--consuming); color: var(--consuming); }
+
+.rank { padding: 22px; display: grid; gap: 7px; }
+.rrow { display: grid; grid-template-columns: 1.6rem minmax(0, 13rem) 1fr; gap: 10px; align-items: center; font-size: 14px; }
+.rrow .i { color: var(--ink-3); text-align: right; font-variant-numeric: tabular-nums; }
+.rrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rrow .bar { height: 14px; border-radius: 4px; background: var(--line); }
+.rrow.cons .bar { background: var(--consuming); }
+.rrow.cons .nm { color: var(--consuming); font-weight: 600; }
+.score { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; border-top: 1px solid var(--line-2); padding-top: 14px; margin-top: 6px; }
+.score b { font: 600 30px/1 var(--serif); color: var(--consuming); }
+.score span { color: var(--ink-2); font-size: 15px; }
+.legend { font-size: 14px; color: var(--ink-3); margin: 6px 0 0; }
+@media (max-width: 520px) { .rrow { grid-template-columns: 1.4rem minmax(0, 9rem) 1fr; } }
+
+.two { display: grid; gap: 20px; }
+@media (min-width: 860px) { .two { grid-template-columns: 1fr 1fr; } }
+.two .card { padding: 22px; }
+.two h3 { margin: 0 0 8px; }
+.two p { margin: 0 0 10px; color: var(--ink-2); }
+.two ul { margin: 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 6px; }
+
+.kpis { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); margin-bottom: 24px; }
+.kpi { padding: 18px; }
+.kpi .v { font: 600 34px/1.05 var(--serif); letter-spacing: -.01em; }
+.kpi .v small { font: 500 16px var(--sans); color: var(--ink-3); }
+.kpi .l { color: var(--ink-2); font-size: 15px; margin-top: 6px; }
+.chart { padding: 18px 18px 10px; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .ttl { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; font-size: 14px; color: var(--ink-2); margin-bottom: 8px; }
+.sw { display: inline-flex; align-items: center; gap: 6px; margin-left: 14px; }
+.sw i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.tablecard { overflow-x: auto; padding: 4px 6px; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 520px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line-2); font-variant-numeric: tabular-nums; }
+thead th { font-size: 13px; color: var(--ink-3); font-weight: 600; }
+tr:last-child > * { border-bottom: 0; }
+td.win { color: var(--flow); font-weight: 650; }
+.caveats { margin: 0; padding-left: 20px; color: var(--ink-2); display: grid; gap: 10px; max-width: 48rem; }
+.caveats strong { color: var(--ink); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M4 15.5c3.2 0 4.4-7 8-7s4.8 7 8 7" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M15.5 5.5 19 8.5l-3.5 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1 -1)"/></symbol>
+</svg>
+<div class="wrap">
+  <nav class="top" aria-label="Main">
+    <a class="brand" href="./"><span class="logo"><svg width="17" height="17" aria-hidden="true"><use href="#mark"/></svg></span>behaviornudge</a>
+    <ul>
+      <li><a href="behaviorgpt.html" aria-current="page">BehaviorGPT</a></li>
+      <li class="opt"><a href="configuration.html">Config</a></li>
+      <li class="opt"><a href="capture.html">Capture</a></li>
+      <li class="opt"><a href="specs/#/specs">Specs</a></li>
+      <li class="gh"><a href="https://github.com/natea/behaviornudge" aria-label="behaviornudge on GitHub" title="behaviornudge on GitHub"><svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.37A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg></a></li>
+    </ul>
+  </nav>
+  <header class="page">
+    <p class="eyebrow">Prediction</p>
+    <h1>Your workday, read as a shopping trip.</h1>
+    <p class="lede"><a href="https://github.com/Unbox-AI/behaviorgpt">BehaviorGPT</a> is Unbox AI's large behavioral model. Given the events in someone's session, it predicts what they'll do next. It was built for e-commerce, where the events are product views and orders. behaviornudge describes your screen time the same way, so BehaviorGPT can answer a new question: <em>you just landed on LinkedIn; is a stretch of scrolling coming?</em></p>
+  </header>
+</div>
+
+<section>
+  <div class="wrap">
+    <h2>Four steps</h2>
+    <p class="sub">No training on your data: BehaviorGPT is used zero-shot. behaviornudge only translates, asks, and reads the answer.</p>
+    <ol class="flow" style="list-style:none;margin:0;padding:0">
+      <li class="card"><h3>A catalog of your activities</h3><p>Every activity you do often becomes a “product”: <code>linkedin.com/feed</code>, <code>x.com/messaging</code>, an editor on a project.</p></li>
+      <li class="card"><h3>Sessions as events</h3><p>Each session is a <em>view</em> with its real timestamp. A session of 10 minutes or more also counts as an <em>order</em>, a commitment.</p></li>
+      <li class="card"><h3>Ask what comes next</h3><p>Send your last 50 sessions plus the visit that just started, and get the 20 activities it thinks are most likely next.</p></li>
+      <li class="card"><h3>Turn it into a drift score</h3><p>The more of the predicted next activities are <em>consuming</em> (feeds, browsing), the higher the chance of drift.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>The translation</h2>
+    <p class="sub">Two things have to be expressed in BehaviorGPT's terms: what exists (the catalog) and what happened (the history).</p>
+    <div class="map">
+      <article class="card">
+        <h3>Activities → catalog items</h3>
+        <p class="what">Built from your labeled timeline and uploaded once with <code>behaviornudge catalog upload</code>.</p>
+        <dl>
+          <dt>Item</dt><dd>an activity key seen in at least 5 sessions; rarer ones fold into “other website” or “other app”</dd>
+          <dt>Name</dt><dd>a readable version of the key, such as “linkedin.com feed”</dd>
+          <dt>Category</dt><dd>its usual mode, and whether the site is drift-prone</dd>
+          <dt>Size</dt><dd>1,278 items covering 5,092 distinct activity keys</dd>
+        </dl>
+<pre class="json">{
+  <span class="k">"id"</span>: <span class="s">"linkedin.com/feed"</span>,
+  <span class="k">"name"</span>: <span class="s">"linkedin.com feed"</span>,
+  <span class="k">"brand"</span>: <span class="s">"linkedin.com"</span>,
+  <span class="k">"categories"</span>: <span class="s">"consuming &gt; drift-prone"</span>,
+  <span class="k">"keywords"</span>: [<span class="s">"consuming"</span>, <span class="s">"linkedin.com"</span>, <span class="s">"drift-prone"</span>],
+  <span class="k">"frequency"</span>: <span class="n">825</span>
+}</pre>
+      </article>
+      <article class="card">
+        <h3>Sessions → view and order events</h3>
+        <p class="what">Rebuilt for every prediction from the history before that moment, never after it.</p>
+        <div class="events" aria-label="Example event history">
+          <span class="ev view">view · editor on project</span><span class="ev order">order · editor on project</span>
+          <span class="ev view">view · gmail.com</span><span class="ev gap">30+ min gap → new session</span>
+          <span class="ev view">view · linkedin.com messages</span><span class="ev now">view · linkedin.com feed (now)</span>
+        </div>
+        <dl>
+          <dt>View</dt><dd>every session, stamped with when it really started</dd>
+          <dt>Order</dt><dd>added when a session lasted 10+ minutes (<code>behaviorgpt_order_min</code>)</dd>
+          <dt>Session block</dt><dd>a new one after a 30-minute gap, like a new shopping visit</dd>
+          <dt>History</dt><dd>the last 50 sessions (<code>behaviorgpt_history_sessions</code>)</dd>
+        </dl>
+<pre class="json"><span class="c">// POST /vector/recommendations  (headers: x-api-key, x-catalog-id)</span>
+{
+  <span class="k">"history"</span>: [ <span class="c">/* views and orders, real timestamps */</span> ],
+  <span class="k">"timestamp"</span>: <span class="s">"2026-11-08T15:42:10Z"</span>,
+  <span class="k">"limit"</span>: <span class="n">20</span>,
+  <span class="k">"register_event"</span>: <span class="n">false</span>
+}</pre>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>From a ranking to a drift score</h2>
+    <p class="sub">BehaviorGPT answers with a ranked list of likely next activities and a score for each. behaviornudge turns those scores into weights (a softmax) and adds up the share that falls on <span style="color:var(--consuming);font-weight:600">consuming</span> activities. That share is the probability of drift. The rank of the first consuming item is kept as a second signal.</p>
+    <div class="card rank" role="img" aria-label="An illustrative ranked list of eight predicted next activities. Three are consuming: linkedin.com feed at rank 2, x.com home feed at rank 5 and youtube.com video at rank 7. Their share of the weight gives a drift score of 0.41.">
+      <div class="rrow"><span class="i">1</span><span class="nm">linkedin.com messages</span><span class="bar" style="width:92%"></span></div>
+      <div class="rrow cons"><span class="i">2</span><span class="nm">linkedin.com feed</span><span class="bar" style="width:84%"></span></div>
+      <div class="rrow"><span class="i">3</span><span class="nm">editor on project</span><span class="bar" style="width:63%"></span></div>
+      <div class="rrow"><span class="i">4</span><span class="nm">gmail.com</span><span class="bar" style="width:51%"></span></div>
+      <div class="rrow cons"><span class="i">5</span><span class="nm">x.com home feed</span><span class="bar" style="width:44%"></span></div>
+      <div class="rrow"><span class="i">6</span><span class="nm">other website</span><span class="bar" style="width:38%"></span></div>
+      <div class="rrow cons"><span class="i">7</span><span class="nm">youtube.com video</span><span class="bar" style="width:30%"></span></div>
+      <div class="rrow"><span class="i">8</span><span class="nm">calendar</span><span class="bar" style="width:22%"></span></div>
+      <div class="score"><b>0.41</b><span>drift score: the consuming share of the weight</span><span>· first consuming item at rank 2</span></div>
+      <p class="legend">Illustrative ranking. A real request returns the top 20.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Where it runs</h2>
+    <div class="two">
+      <div class="card">
+        <h3>In the backtest</h3>
+        <p>A rolling weekly evaluation over 28 weeks of history. For every drift-prone visit, each predictor sees only what happened before it. A check in the code raises an error if any later session slips in.</p>
+        <ul>
+          <li>BehaviorGPT goes head to head with a baseline built from your own history: past drift rates by site, previous activity, time of day and weekday.</li>
+          <li>Each is scored on PR-AUC and ROC-AUC, and on how its nudges would do within a daily nudge budget.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Live, in shadow mode</h3>
+        <p>Every time the live engine sends a nudge, BehaviorGPT scores that moment in the background, and the score is saved next to the nudge.</p>
+        <ul>
+          <li>It never decides or delays a nudge; the rules do that.</li>
+          <li>It gets 3 seconds. If it's slow or fails, the baseline scores the moment instead and the error is logged.</li>
+          <li>All 14 nudges sent at the hackathon got a BehaviorGPT score. Comparing those scores with whether you went back to work is how it earns a say later.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>How it did</h2>
+    <p class="sub">The backtest covered 781 drift-prone visits over 28 test weeks (April to November 2026). 245 of them turned into drift, a base rate of 31%.</p>
+    <div class="kpis">
+      <div class="card kpi"><div class="v">18 <small>of 28</small></div><div class="l">weeks where BehaviorGPT beat the baseline on PR-AUC</div></div>
+      <div class="card kpi"><div class="v">0.39 <small>vs 0.33</small></div><div class="l">PR-AUC, pooled across all weeks (base rate 0.31)</div></div>
+      <div class="card kpi"><div class="v">0.57 <small>vs 0.51</small></div><div class="l">ROC-AUC, where 0.5 is chance</div></div>
+      <div class="card kpi"><div class="v">448 <small>ms</small></div><div class="l">mean response time; the limit is 3 s</div></div>
+    </div>
+    <div class="card chart">
+      <div class="ttl"><span>PR-AUC by test week</span><span><span class="sw"><i style="background:var(--flow)"></i>BehaviorGPT</span><span class="sw"><i style="background:var(--ink-3)"></i>baseline</span></span></div>
+      <svg viewBox="0 0 760 260" role="img" aria-label="PR-AUC per test week for BehaviorGPT and the baseline; BehaviorGPT is higher in 18 of 28 weeks." font-family="var(--sans)" font-size="11"><line x1="38" x2="750" y1="226.0" y2="226.0" stroke="var(--line-2)"/><text x="32" y="230.0" text-anchor="end" fill="var(--ink-3)">0.0</text><line x1="38" x2="750" y1="172.5" y2="172.5" stroke="var(--line-2)"/><text x="32" y="176.5" text-anchor="end" fill="var(--ink-3)">0.2</text><line x1="38" x2="750" y1="119.0" y2="119.0" stroke="var(--line-2)"/><text x="32" y="123.0" text-anchor="end" fill="var(--ink-3)">0.4</text><line x1="38" x2="750" y1="65.5" y2="65.5" stroke="var(--line-2)"/><text x="32" y="69.5" text-anchor="end" fill="var(--ink-3)">0.6</text><line x1="38" x2="750" y1="12.0" y2="12.0" stroke="var(--line-2)"/><text x="32" y="16.0" text-anchor="end" fill="var(--ink-3)">0.8</text><line x1="50.7" x2="50.7" y1="164.2" y2="130.2" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="50.7" cy="164.2" r="4" fill="var(--ink-3)"><title>2026-W17 baseline 0.231</title></circle><circle cx="50.7" cy="130.2" r="4.5" fill="var(--flow)"><title>2026-W17 BehaviorGPT 0.358</title></circle><text x="50.7" y="248" text-anchor="middle" fill="var(--ink-3)">W17</text><line x1="76.1" x2="76.1" y1="159.1" y2="136.9" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="76.1" cy="159.1" r="4" fill="var(--ink-3)"><title>2026-W19 baseline 0.250</title></circle><circle cx="76.1" cy="136.9" r="4.5" fill="var(--flow)"><title>2026-W19 BehaviorGPT 0.333</title></circle><line x1="101.6" x2="101.6" y1="92.2" y2="92.2" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="101.6" cy="92.2" r="4" fill="var(--ink-3)"><title>2026-W20 baseline 0.500</title></circle><circle cx="101.6" cy="92.2" r="4.5" fill="var(--flow)"><title>2026-W20 BehaviorGPT 0.500</title></circle><line x1="127.0" x2="127.0" y1="185.1" y2="203.5" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="127.0" cy="185.1" r="4" fill="var(--ink-3)"><title>2026-W21 baseline 0.153</title></circle><circle cx="127.0" cy="203.5" r="4.5" fill="var(--flow)"><title>2026-W21 BehaviorGPT 0.084</title></circle><text x="127.0" y="248" text-anchor="middle" fill="var(--ink-3)">W21</text><line x1="152.4" x2="152.4" y1="161.5" y2="78.1" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="152.4" cy="161.5" r="4" fill="var(--ink-3)"><title>2026-W22 baseline 0.241</title></circle><circle cx="152.4" cy="78.1" r="4.5" fill="var(--flow)"><title>2026-W22 BehaviorGPT 0.553</title></circle><line x1="177.9" x2="177.9" y1="51.6" y2="124.4" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="177.9" cy="51.6" r="4" fill="var(--ink-3)"><title>2026-W23 baseline 0.652</title></circle><circle cx="177.9" cy="124.4" r="4.5" fill="var(--flow)"><title>2026-W23 BehaviorGPT 0.380</title></circle><line x1="203.3" x2="203.3" y1="140.7" y2="124.1" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="203.3" cy="140.7" r="4" fill="var(--ink-3)"><title>2026-W24 baseline 0.319</title></circle><circle cx="203.3" cy="124.1" r="4.5" fill="var(--flow)"><title>2026-W24 BehaviorGPT 0.381</title></circle><text x="203.3" y="248" text-anchor="middle" fill="var(--ink-3)">W24</text><line x1="228.7" x2="228.7" y1="162.9" y2="123.3" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="228.7" cy="162.9" r="4" fill="var(--ink-3)"><title>2026-W25 baseline 0.236</title></circle><circle cx="228.7" cy="123.3" r="4.5" fill="var(--flow)"><title>2026-W25 BehaviorGPT 0.384</title></circle><line x1="254.1" x2="254.1" y1="111.8" y2="119.0" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="254.1" cy="111.8" r="4" fill="var(--ink-3)"><title>2026-W26 baseline 0.427</title></circle><circle cx="254.1" cy="119.0" r="4.5" fill="var(--flow)"><title>2026-W26 BehaviorGPT 0.400</title></circle><line x1="279.6" x2="279.6" y1="140.7" y2="82.6" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="279.6" cy="140.7" r="4" fill="var(--ink-3)"><title>2026-W27 baseline 0.319</title></circle><circle cx="279.6" cy="82.6" r="4.5" fill="var(--flow)"><title>2026-W27 BehaviorGPT 0.536</title></circle><text x="279.6" y="248" text-anchor="middle" fill="var(--ink-3)">W27</text><line x1="305.0" x2="305.0" y1="126.5" y2="126.0" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="305.0" cy="126.5" r="4" fill="var(--ink-3)"><title>2026-W28 baseline 0.372</title></circle><circle cx="305.0" cy="126.0" r="4.5" fill="var(--flow)"><title>2026-W28 BehaviorGPT 0.374</title></circle><line x1="330.4" x2="330.4" y1="92.2" y2="92.2" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="330.4" cy="92.2" r="4" fill="var(--ink-3)"><title>2026-W29 baseline 0.500</title></circle><circle cx="330.4" cy="92.2" r="4.5" fill="var(--flow)"><title>2026-W29 BehaviorGPT 0.500</title></circle><line x1="355.9" x2="355.9" y1="70.0" y2="114.5" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="355.9" cy="70.0" r="4" fill="var(--ink-3)"><title>2026-W30 baseline 0.583</title></circle><circle cx="355.9" cy="114.5" r="4.5" fill="var(--flow)"><title>2026-W30 BehaviorGPT 0.417</title></circle><text x="355.9" y="248" text-anchor="middle" fill="var(--ink-3)">W30</text><line x1="381.3" x2="381.3" y1="53.2" y2="23.8" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="381.3" cy="53.2" r="4" fill="var(--ink-3)"><title>2026-W31 baseline 0.646</title></circle><circle cx="381.3" cy="23.8" r="4.5" fill="var(--flow)"><title>2026-W31 BehaviorGPT 0.756</title></circle><line x1="406.7" x2="406.7" y1="134.8" y2="35.0" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="406.7" cy="134.8" r="4" fill="var(--ink-3)"><title>2026-W32 baseline 0.341</title></circle><circle cx="406.7" cy="35.0" r="4.5" fill="var(--flow)"><title>2026-W32 BehaviorGPT 0.714</title></circle><line x1="432.1" x2="432.1" y1="135.6" y2="143.1" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="432.1" cy="135.6" r="4" fill="var(--ink-3)"><title>2026-W33 baseline 0.338</title></circle><circle cx="432.1" cy="143.1" r="4.5" fill="var(--flow)"><title>2026-W33 BehaviorGPT 0.310</title></circle><text x="432.1" y="248" text-anchor="middle" fill="var(--ink-3)">W33</text><line x1="457.6" x2="457.6" y1="68.4" y2="105.9" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="457.6" cy="68.4" r="4" fill="var(--ink-3)"><title>2026-W34 baseline 0.589</title></circle><circle cx="457.6" cy="105.9" r="4.5" fill="var(--flow)"><title>2026-W34 BehaviorGPT 0.449</title></circle><line x1="483.0" x2="483.0" y1="109.4" y2="81.0" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="483.0" cy="109.4" r="4" fill="var(--ink-3)"><title>2026-W35 baseline 0.436</title></circle><circle cx="483.0" cy="81.0" r="4.5" fill="var(--flow)"><title>2026-W35 BehaviorGPT 0.542</title></circle><line x1="508.4" x2="508.4" y1="74.3" y2="53.5" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="508.4" cy="74.3" r="4" fill="var(--ink-3)"><title>2026-W36 baseline 0.567</title></circle><circle cx="508.4" cy="53.5" r="4.5" fill="var(--flow)"><title>2026-W36 BehaviorGPT 0.645</title></circle><text x="508.4" y="248" text-anchor="middle" fill="var(--ink-3)">W36</text><line x1="533.9" x2="533.9" y1="97.6" y2="156.5" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="533.9" cy="97.6" r="4" fill="var(--ink-3)"><title>2026-W37 baseline 0.480</title></circle><circle cx="533.9" cy="156.5" r="4.5" fill="var(--flow)"><title>2026-W37 BehaviorGPT 0.260</title></circle><line x1="559.3" x2="559.3" y1="76.7" y2="124.4" stroke="var(--ink-3)" stroke-width="2" opacity=".55"/><circle cx="559.3" cy="76.7" r="4" fill="var(--ink-3)"><title>2026-W38 baseline 0.558</title></circle><circle cx="559.3" cy="124.4" r="4.5" fill="var(--flow)"><title>2026-W38 BehaviorGPT 0.380</title></circle><line x1="584.7" x2="584.7" y1="151.1" y2="115.8" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="584.7" cy="151.1" r="4" fill="var(--ink-3)"><title>2026-W39 baseline 0.280</title></circle><circle cx="584.7" cy="115.8" r="4.5" fill="var(--flow)"><title>2026-W39 BehaviorGPT 0.412</title></circle><text x="584.7" y="248" text-anchor="middle" fill="var(--ink-3)">W39</text><line x1="610.1" x2="610.1" y1="180.0" y2="104.0" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="610.1" cy="180.0" r="4" fill="var(--ink-3)"><title>2026-W40 baseline 0.172</title></circle><circle cx="610.1" cy="104.0" r="4.5" fill="var(--flow)"><title>2026-W40 BehaviorGPT 0.456</title></circle><line x1="635.6" x2="635.6" y1="79.4" y2="50.5" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="635.6" cy="79.4" r="4" fill="var(--ink-3)"><title>2026-W41 baseline 0.548</title></circle><circle cx="635.6" cy="50.5" r="4.5" fill="var(--flow)"><title>2026-W41 BehaviorGPT 0.656</title></circle><line x1="661.0" x2="661.0" y1="99.2" y2="57.2" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="661.0" cy="99.2" r="4" fill="var(--ink-3)"><title>2026-W42 baseline 0.474</title></circle><circle cx="661.0" cy="57.2" r="4.5" fill="var(--flow)"><title>2026-W42 BehaviorGPT 0.631</title></circle><text x="661.0" y="248" text-anchor="middle" fill="var(--ink-3)">W42</text><line x1="686.4" x2="686.4" y1="48.6" y2="34.7" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="686.4" cy="48.6" r="4" fill="var(--ink-3)"><title>2026-W43 baseline 0.663</title></circle><circle cx="686.4" cy="34.7" r="4.5" fill="var(--flow)"><title>2026-W43 BehaviorGPT 0.715</title></circle><line x1="711.9" x2="711.9" y1="144.7" y2="76.2" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="711.9" cy="144.7" r="4" fill="var(--ink-3)"><title>2026-W44 baseline 0.304</title></circle><circle cx="711.9" cy="76.2" r="4.5" fill="var(--flow)"><title>2026-W44 BehaviorGPT 0.560</title></circle><line x1="737.3" x2="737.3" y1="186.4" y2="164.5" stroke="var(--flow)" stroke-width="2" opacity=".55"/><circle cx="737.3" cy="186.4" r="4" fill="var(--ink-3)"><title>2026-W45 baseline 0.148</title></circle><circle cx="737.3" cy="164.5" r="4.5" fill="var(--flow)"><title>2026-W45 BehaviorGPT 0.230</title></circle><text x="737.3" y="248" text-anchor="middle" fill="var(--ink-3)">W45</text></svg>
+    </div>
+    <p class="sub" style="margin-top:28px;margin-bottom:16px">Within a budget of 5 nudges per working day, the two would have nudged almost the same moments:</p>
+    <div class="card tablecard">
+      <table>
+        <thead><tr><th></th><th>baseline</th><th>BehaviorGPT</th></tr></thead>
+        <tbody>
+          <tr><th>Precision (nudges that preceded real drift)</th><td>31.8%</td><td class="win">33.0%</td></tr>
+          <tr><th>Recall (drifts that got a nudge)</th><td>83.7%</td><td class="win">86.9%</td></tr>
+          <tr><th>False alarms per working day</th><td>3.41</td><td class="win">3.35</td></tr>
+          <tr><th>ROC-AUC when the day's plan came from the calendar</th><td>0.52</td><td class="win">0.59</td></tr>
+          <tr><th>ROC-AUC in the afternoon</th><td>0.53</td><td class="win">0.61</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>What to make of it</h2>
+    <ul class="caveats">
+      <li><strong>The signal is real but small.</strong> 0.57 is better than chance, but not yet good enough to decide nudges on its own. That's why it runs in shadow mode.</li>
+      <li><strong>The nudge budget didn't test much.</strong> With about 6 drift-prone visits a day, a budget of 5 lets either model nudge most of them. A budget of 1–2 a day would show whether the top-ranked moments are worth acting on.</li>
+      <li><strong>Weekly scores are noisy.</strong> Weeks had between 1 and 24 drifts, so one drift can swing a week.</li>
+      <li><strong>Time of day may not matter to it.</strong> In one manual probe, shifting a history by 12 hours didn't change the answer.</li>
+      <li><strong>Predicting at the end of a meeting couldn't be judged.</strong> Only 3 of 200 meeting ends were followed by drift.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Details that mattered</h2>
+    <div class="two">
+      <div class="card">
+        <h3>Real timestamps, nothing recorded</h3>
+        <p>The SDK's convenience call re-stamps history events close to “now”, which would erase when things happened. So behaviornudge builds each request with the SDK's own data models and posts it to the raw <code>/vector/recommendations</code> endpoint itself, keeping each session's real time. It sets <code>register_event: false</code>, so predictions aren't recorded back into the model as new behavior.</p>
+      </div>
+      <div class="card">
+        <h3>What leaves your Mac</h3>
+        <p>Requests go through an allowlisted gate that logs each one locally. A request carries activity keys and timestamps, and the catalog adds readable names, usual mode and domain. Repo names appear in item names. Screen text, page titles, URLs beyond the coarse key, and screenshots are never sent.</p>
+      </div>
+    </div>
+    <p style="color:var(--ink-2);margin-top:24px">Every predictor uses the same small interface: history before a moment, the intent and the current activity in, a drift probability and a ranked list out. BehaviorGPT can be swapped out or compared with others, such as the <a href="https://github.com/ant-research/EasyTemporalPointProcess">EasyTPP</a> temporal point process models proposed next. Switch predictors in <a href="configuration.html#predictors"><code>[predictors]</code></a>.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><a href="./">← behaviornudge</a> · <a href="configuration.html">Configuration</a> · <a href="capture.html">Capture sources</a> · <a href="architecture.html">Architecture</a> · <a href="specs/#/specs">Specs</a></p>
+    <p>BehaviorGPT is made by <a href="https://www.unboxai.com">Unbox AI</a>. behaviornudge was built at Sundai Hack 148 – Behavioral Models, MIT, November 8, 2026. MIT © 2026 Nate Aune</p>
+  </div>
+</footer>
+</body>
+</html>
