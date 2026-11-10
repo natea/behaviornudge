@@ -79,3 +79,38 @@ def test_sunsama_calls_are_serialized(tmp_path):
     for t in ts:
         t.join()
     assert overlap == [1, 1, 1, 1]
+
+
+# ---- OAuth metadata cache: a network blip must not look like an expired sign-in ------------
+
+def _meta():
+    from mcp.shared.auth import OAuthMetadata
+    return OAuthMetadata.model_validate({
+        "issuer": "https://api.sunsama.com", "authorization_endpoint": "https://api.sunsama.com/oauth/authorize",
+        "token_endpoint": "https://api.sunsama.com/oauth/token", "response_types_supported": ["code"]})
+
+
+def test_auth_metadata_cached_and_used_when_fetch_fails(tmp_path, monkeypatch):
+    import json as _json
+    from behaviornudge import sunsama_mcp as sm
+    p = tmp_path / "sunsama_oauth.json"
+    p.write_text(_json.dumps({"tokens": {"access_token": "a", "token_type": "Bearer"}}))
+    st = sm.FileTokenStorage(p)
+    monkeypatch.setattr(sm, "_auth_server_metadata", _meta)
+    assert str(st.auth_metadata().token_endpoint) == "https://api.sunsama.com/oauth/token"
+    assert "auth_metadata" in _json.loads(p.read_text())
+    monkeypatch.setattr(sm, "_auth_server_metadata", lambda: None)
+    assert str(st.auth_metadata().token_endpoint) == "https://api.sunsama.com/oauth/token"
+
+
+def test_unreachable_metadata_is_not_a_login_problem(tmp_path, monkeypatch):
+    import asyncio
+    import json as _json
+    import pytest
+    from behaviornudge import sunsama_mcp as sm
+    p = tmp_path / "sunsama_oauth.json"
+    p.write_text(_json.dumps({"tokens": {"access_token": "a", "token_type": "Bearer"}}))
+    monkeypatch.setattr(sm, "_auth_server_metadata", lambda: None)
+    with pytest.raises(sm.SunsamaUnreachable) as e:
+        asyncio.run(sm.read_json_resource(sm.FileTokenStorage(p), sm.TIMER_URI))
+    assert not sm.needs_login(e.value)

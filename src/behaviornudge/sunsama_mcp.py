@@ -28,6 +28,10 @@ class LoginRequired(RuntimeError):
     """No cached Sunsama tokens; run `behaviornudge sunsama-timer --login` once."""
 
 
+class SunsamaUnreachable(RuntimeError):
+    """Sunsama's OAuth metadata couldn't be loaded; a transient failure, not an expired login."""
+
+
 def needs_login(exc: BaseException) -> bool:
     """True if `exc` is, wraps or groups a LoginRequired (the MCP client raises from task groups)."""
     seen: set[int] = set()
@@ -91,6 +95,22 @@ class FileTokenStorage:
     def has_tokens(self) -> bool:
         return bool(self._load().get("tokens"))
 
+    def auth_metadata(self):
+        """Sunsama's OAuth server metadata: fetched fresh and cached here, or the cached copy if the
+        fetch fails. Without it the SDK refreshes against a guessed `/token` URL, gets a 404 and
+        falls back to a full browser login, which looks like an expired sign-in but isn't."""
+        from mcp.shared.auth import OAuthMetadata
+        fresh = _auth_server_metadata()
+        if fresh is not None:
+            d = self._load()
+            dumped = fresh.model_dump(mode="json", exclude_none=True)
+            if d and d.get("auth_metadata") != dumped:
+                d["auth_metadata"] = dumped
+                self._save(d)
+            return fresh
+        cached = self._load().get("auth_metadata")
+        return OAuthMetadata.model_validate(cached) if cached else None
+
     @contextlib.contextmanager
     def locked(self):
         """Hold an exclusive lock (across threads and processes) for one Sunsama call.
@@ -136,7 +156,7 @@ class _Callback:
         threading.Thread(target=lambda: (srv.handle_request(), srv.server_close()), daemon=True).start()
 
 
-def _provider(storage: FileTokenStorage, interactive: bool):
+def _provider(storage: FileTokenStorage, interactive: bool, metadata=None):
     from mcp.client.auth import OAuthClientProvider
     from mcp.shared.auth import AuthorizationCodeResult, OAuthClientMetadata
 
@@ -169,9 +189,11 @@ def _provider(storage: FileTokenStorage, interactive: bool):
             # Refresh needs the real token endpoint; in a fresh process the SDK only discovers it
             # after a 401 and otherwise guesses `/token` (404 on Sunsama). Load the metadata up front.
             if self.context.oauth_metadata is None:
-                self.context.oauth_metadata = _auth_server_metadata()
+                self.context.oauth_metadata = metadata
 
-    return Provider(SERVER_URL, meta, storage, redirect_handler, callback_handler)
+    provider = Provider(SERVER_URL, meta, storage, redirect_handler, callback_handler)
+    provider.signed_in_via_browser = lambda: cb.done.is_set()
+    return provider
 
 
 AUTH_SERVER = "https://api.sunsama.com"
@@ -206,11 +228,19 @@ async def read_json_resource(storage: FileTokenStorage, uri: str, interactive: b
     with storage.locked():
         if not interactive and not storage.has_tokens():
             raise LoginRequired("Sunsama login required: run `uv run behaviornudge sunsama-timer --login` once")
-        http = create_mcp_http_client(auth=_provider(storage, interactive))
+        metadata = storage.auth_metadata()
+        if metadata is None and storage.has_tokens() and not interactive:
+            raise SunsamaUnreachable("Couldn't load Sunsama's sign-in settings; will retry")
+        provider = _provider(storage, interactive, metadata)
+        http = create_mcp_http_client(auth=provider)
         async with streamable_http_client(SERVER_URL, http_client=http) as streams:
             async with ClientSession(streams[0], streams[1]) as session:
                 await session.initialize()
-                return parse_timer(await session.read_resource(uri))
+                result = parse_timer(await session.read_resource(uri))
+        if interactive and not provider.signed_in_via_browser():
+            import sys
+            print("Already signed in to Sunsama; no browser sign-in needed.", file=sys.stderr)
+        return result
 
 
 def fetch_resource(token_path: Path, uri: str) -> dict:
